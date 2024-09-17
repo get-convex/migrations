@@ -10,6 +10,9 @@ import {
   internalMutationGeneric,
   makeFunctionReference,
   MutationBuilder,
+  NamedTableInfo,
+  OrderedQuery,
+  QueryInitializer,
   RegisteredMutation,
   TableNamesInDataModel,
 } from "convex/server";
@@ -137,6 +140,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
   function migration<TableName extends TableNamesInDataModel<DataModel>>({
     table,
     migrateOne,
+    customRange,
     batchSize: functionDefaultBatchSize,
   }: {
     table: TableName;
@@ -147,6 +151,9 @@ export function defineMigrations<DataModel extends GenericDataModel>(
       | void
       | Partial<DocumentByName<DataModel, TableName>>
       | Promise<Partial<DocumentByName<DataModel, TableName>> | void>;
+    customRange?: (
+      q: QueryInitializer<NamedTableInfo<DataModel, TableName>>
+    ) => OrderedQuery<NamedTableInfo<DataModel, TableName>>;
     batchSize?: number;
   }) {
     const defaultBatchSize =
@@ -189,9 +196,12 @@ export function defineMigrations<DataModel extends GenericDataModel>(
           }
         }
 
-        const { continueCursor, page, isDone } = await ctx.db
-          .query(table)
-          .paginate({ cursor: args.cursor, numItems });
+        const q = ctx.db.query(table);
+        const range = customRange ? customRange(q) : q;
+        const { continueCursor, page, isDone } = await range.paginate({
+          cursor: args.cursor,
+          numItems,
+        });
         for (const doc of page) {
           try {
             const next = await migrateOne(ctx, doc);
