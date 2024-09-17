@@ -1,17 +1,10 @@
-import {
-  components,
-  internalMutation,
-  internalQuery,
-} from "./_generated/server.js";
+import { components, internalMutation } from "./_generated/server.js";
 import { defineMigrations } from "@convex-dev/migrations";
 import { internal } from "./_generated/api.js";
-import { MigrationStatus } from "../../src/shared.js";
 
 export const { run, migration, ...migrationApi } = defineMigrations(
   components.migrations,
-  {
-    internalMutation,
-  }
+  { internalMutation }
 );
 
 export const setDefaultValue = migration({
