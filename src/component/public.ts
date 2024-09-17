@@ -35,7 +35,7 @@ export const runMigration = mutation({
   },
   handler: async (ctx, args) => {
     // Step 1: Get or create the state.
-    const { batchSize, next: next_, dryRun, ...initialState } = args;
+    const { fn, batchSize, next: next_, dryRun, ...initialState } = args;
     const state =
       (await ctx.db
         .query("migrations")
@@ -79,7 +79,7 @@ export const runMigration = mutation({
 
     // Step 2: Run the migration.
     try {
-      const result = await ctx.runMutation(args.fn as MigrationFunctionHandle, {
+      const result = await ctx.runMutation(fn as MigrationFunctionHandle, {
         cursor: state.cursor,
         batchSize,
         dryRun,
@@ -99,6 +99,7 @@ export const runMigration = mutation({
       ) {
         console.debug("Dry run: continuing");
       } else {
+        // TODO: Capture the error in the table as a status
         throw e;
       }
     }
@@ -144,7 +145,7 @@ export const runMigration = mutation({
         }
       } else {
         console.debug(
-          `Migration ${args.fn} is done.` +
+          `Migration ${fn} is done.` +
             (i < next.length ? ` Next: ${next[i]!.name}` : "")
         );
       }

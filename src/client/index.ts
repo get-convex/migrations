@@ -20,6 +20,7 @@ import {
   MigrationResult,
   MigrationStatus,
 } from "../shared.js";
+export type { MigrationArgs, MigrationResult, MigrationStatus };
 import { api } from "../component/_generated/api.js"; // the component's public api
 
 import { ConvexError, GenericId, v } from "convex/values";
@@ -158,26 +159,36 @@ export function defineMigrations<DataModel extends GenericDataModel>(
       args: migrationArgs,
       returns: migrationResult,
       handler: async (ctx, args) => {
+        const numItems = args.batchSize || defaultBatchSize;
         if (args.batchSize === 0) {
-          throw new Error(
-            "Batch size must be greater than zero.\n" +
+          console.warn(
+            `Batch size is zero. Using the default: ${numItems}\n` +
               "Running this from the dashboard? Here's some args to use:\n" +
               `Dry run: { dryRun: true, cursor: null }\n` +
-              `For real: run the startMigration function with  { fn: "migrations:yourFnName" }`
+              'For real: run `migrations:run` with { fn: "migrations:yourFnName" }'
           );
         }
-        if (args.cursor === "") {
+        if (
+          (args.cursor === undefined || args.cursor === "") &&
+          args.dryRun === undefined
+        ) {
+          console.warn(
+            "No cursor or dryRun specified - doing a dry run on the first batch"
+          );
+          args.cursor = null;
+          args.dryRun = true;
+        }
+        if (args.cursor === "" || args.cursor === undefined) {
           if (args.dryRun) {
             console.warn("Setting cursor to null for dry run");
             args.cursor = null;
           } else {
-            throw new Error(`Cursor can't be an empty string.
+            throw new Error(`Cursor must be specified for a one-off execution.
               Use null to start from the beginning.
               Use the value in the migrations database to pick up from where it left off.`);
           }
         }
 
-        const numItems = args.batchSize ?? defaultBatchSize;
         const { continueCursor, page, isDone } = await ctx.db
           .query(table)
           .paginate({ cursor: args.cursor, numItems });
@@ -237,19 +248,30 @@ export function defineMigrations<DataModel extends GenericDataModel>(
     handler: async (ctx, args) => {
       // Future: Call it so that it can return the id: ctx.runMutation?
       const name = prefixedName(args.fn);
+      async function makeFn(fn: string) {
+        try {
+          return await createFunctionHandle(
+            makeFunctionReference<"mutation">(fn)
+          );
+        } catch {
+          throw new Error(
+            `Can't find function ${fn}\n` +
+              "The name should match the folder/file:method\n" +
+              "See https://docs.convex.dev/functions/query-functions#query-names"
+          );
+        }
+      }
       const next =
         args.next &&
         (await Promise.all(
           args.next.map(async (nextFn) => ({
             name: prefixedName(nextFn),
-            fn: await createFunctionHandle(
-              makeFunctionReference<"mutation">(nextFn)
-            ),
+            fn: await makeFn(prefixedName(nextFn)),
           }))
         ));
       await ctx.runMutation(migrationsComponent.public.runMigration, {
         name,
-        fn: await createFunctionHandle(makeFunctionReference<"mutation">(name)),
+        fn: await makeFn(name),
         cursor: args.cursor,
         batchSize: args.batchSize,
         next,
@@ -293,7 +315,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    */
   async function startMigration(
     ctx: RunMutationCtx,
-    fnRef: FunctionReference<"mutation", "internal", MigrationArgs>,
+    fnRef: MigrationFunctionReference,
     opts?: {
       startCursor?: string | null;
       batchSize?: number;
@@ -347,7 +369,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    */
   async function startMigrationsSerially(
     ctx: RunMutationCtx,
-    fnRefs: FunctionReference<"mutation", "internal", MigrationArgs>[]
+    fnRefs: MigrationFunctionReference[]
   ) {
     if (fnRefs.length === 0) return;
     const [fnRef, ...rest] = fnRefs;
@@ -378,10 +400,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
       migrations,
       limit,
     }: {
-      migrations?: (
-        | string
-        | FunctionReference<"mutation", "internal", MigrationArgs>
-      )[];
+      migrations?: (string | MigrationFunctionReference)[];
       limit?: number;
     }
   ): Promise<MigrationStatus[]> {
@@ -405,7 +424,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    */
   async function cancelMigration(
     ctx: RunMutationCtx,
-    migration: FunctionReference<"mutation", "internal", MigrationArgs> | string
+    migration: MigrationFunctionReference | string
   ): Promise<MigrationStatus> {
     const name =
       typeof migration === "string"
@@ -424,6 +443,12 @@ export function defineMigrations<DataModel extends GenericDataModel>(
     cancelMigration,
   };
 }
+
+export type MigrationFunctionReference = FunctionReference<
+  "mutation",
+  "internal",
+  MigrationArgs
+>;
 
 /* Type utils follow */
 

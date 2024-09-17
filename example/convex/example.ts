@@ -1,5 +1,9 @@
-import { components, internalMutation } from "./_generated/server.js";
-import { defineMigrations } from "@convex-dev/migrations";
+import {
+  components,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server.js";
+import { defineMigrations, MigrationStatus } from "@convex-dev/migrations";
 import { internal } from "./_generated/api.js";
 
 export const { run, migration, ...migrationApi } = defineMigrations(

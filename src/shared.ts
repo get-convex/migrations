@@ -1,7 +1,7 @@
 import { Infer, ObjectType, v } from "convex/values";
 
 export const migrationArgs = {
-  cursor: v.union(v.string(), v.null()),
+  cursor: v.optional(v.union(v.string(), v.null())),
   batchSize: v.optional(v.number()),
   dryRun: v.optional(v.boolean()),
 };
