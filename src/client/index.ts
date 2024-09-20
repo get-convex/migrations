@@ -71,7 +71,7 @@ export class Migrations<DataModel extends GenericDataModel> {
        * import { internalMutation } from "./_generated/server.js";
        * ```
        */
-      internalMutation: MutationBuilder<DataModel, "internal">;
+      internalMutation?: MutationBuilder<DataModel, "internal">;
       /**
        * How many documents to process in a batch.
        * Your migrateOne function will be called for each document in a batch in
@@ -231,7 +231,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     table: TableName;
     migrateOne: (
       ctx: GenericMutationCtx<DataModel>,
-      doc: DocumentByName<DataModel, TableName>
+      doc: DocumentByName<DataModel, TableName> & { _id: GenericId<TableName> }
     ) =>
       | void
       | Partial<DocumentByName<DataModel, TableName>>
@@ -247,7 +247,10 @@ export class Migrations<DataModel extends GenericDataModel> {
       DEFAULT_BATCH_SIZE;
     // Under the hood it's an internal mutation that calls the migrateOne
     // function for every document in a page, recursively scheduling batches.
-    return this.options.internalMutation({
+    return (
+      this.options.internalMutation ??
+      (internalMutationGeneric as MutationBuilder<DataModel, "internal">)
+    )({
       args: migrationArgs,
       returns: migrationResult,
       handler: async (ctx, args) => {
@@ -289,7 +292,10 @@ export class Migrations<DataModel extends GenericDataModel> {
         });
         for (const doc of page) {
           try {
-            const next = await migrateOne(ctx, doc);
+            const next = await migrateOne(
+              ctx,
+              doc as { _id: GenericId<TableName> }
+            );
             if (next && Object.keys(next).length > 0) {
               await ctx.db.patch(doc._id as GenericId<TableName>, next);
             }
