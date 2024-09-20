@@ -2,6 +2,33 @@
 
 [![npm version](https://badge.fury.io/js/@convex-dev%2Fmigrations.svg)](https://badge.fury.io/js/@convex-dev%2Fmigrations)
 
+Define migrations, like this one setting a default value for users:
+
+```ts
+// in convex/migrations.ts
+export const setDefaultValue = migrations.define({
+  table: "users",
+  migrateOne: async (ctx, user) => {
+    if (user.optionalField === undefined) {
+      await ctx.db.patch(user._id, { optionalField: "default" });
+    }
+  },
+});
+```
+
+Run them from the CLI: `npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'`
+
+Or from a server function:
+
+```ts
+const allMigrations = [
+  internal.migrations.setDefaultValue,
+  internal.migrations.validateRequiredField,
+  internal.migrations.convertUnionField,
+];
+await migrations.runSerially(ctx, allMigrations);
+```
+
 See [this article](https://stack.convex.dev/migrating-data-with-mutations) for more information.
 
 ### Convex App
@@ -80,6 +107,15 @@ Then run it:
 ```sh
 npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'
 ```
+
+Or define a single runner:
+
+```ts
+// in convex/migrations.ts for example
+export const runOne = migrations.runFromCLI(internal.migrations.foo);
+```
+
+And just run: `npx convex run migrations:runOne`
 
 See [this article](https://stack.convex.dev/migrating-data-with-mutations)
 for more information on usage and advanced patterns.
