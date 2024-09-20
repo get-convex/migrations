@@ -64,7 +64,7 @@
     }
   },
   "dependencies": {
-    "convex": "^1.16.1"
+    "convex": "^1.16.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
