@@ -53,7 +53,7 @@ export type Mounts = {
     cancelAll: FunctionReference<
       "mutation",
       "public",
-      {},
+      { sinceTs?: number },
       Array<{
         batchSize?: number;
         cursor?: string | null;

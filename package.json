@@ -1,8 +1,19 @@
 {
   "name": "@convex-dev/migrations",
-  "version": "0.0.0",
-  "type": "module",
+  "description": "A migrations component for Convex. Define, run, and track your database migrations. Run from a CLI or Convex server function.",
+  "repository": "github:get-convex/migrations",
+  "homepage": "https://github.com/get-convex/migrations#readme",
+  "bugs": {
+    "email": "support@convex.dev",
+    "url": "https://github.com/get-convex/migrations/issues"
+  },
+  "version": "0.1.0",
   "license": "Apache-2.0",
+  "keywords": [
+    "convex",
+    "component"
+  ],
+  "type": "module",
   "scripts": {
     "build": "npm run build:esm && npm run build:cjs",
     "build:esm": "tsc --project ./esm.json && echo '{\\n  \"type\": \"module\"\\n}' > dist/esm/package.json",
@@ -44,7 +55,7 @@
         "default": "./dist/commonjs/frontend.js"
       }
     },
-    "./convex.config.js": {
+    "./convex.config": {
       "import": {
         "@convex-dev/component-source": "./src/component/convex.config.ts",
         "types": "./dist/esm/component/convex.config.d.ts",

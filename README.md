@@ -1,10 +1,13 @@
 # Stateful Migrations Convex Component
 
+[![npm version](https://badge.fury.io/js/@convex-dev%2Fmigrations.svg)](https://badge.fury.io/js/@convex-dev%2Fmigrations)
+
 See [this article](https://stack.convex.dev/migrating-data-with-mutations) for more information.
 
 ### Convex App
 
-You'll need a Convex App to use the component. Follow any of the [Convex quickstarts](https://docs.convex.dev/home) to set one up.
+You'll need a Convex App to use the component. Run `npm create convex` or
+follow any of the [Convex quickstarts](https://docs.convex.dev/home) to set one up.
 
 ## Installation
 
@@ -19,7 +22,7 @@ Create a `convex.config.ts` file in your app's `convex/` folder and install the 
 ```ts
 // convex/convex.config.js
 import { defineApp } from "convex/server";
-import migrations from "@convex-dev/migrations/convex.config.js";
+import migrations from "@convex-dev/migrations/convex.config";
 
 const app = defineApp();
 app.use(migrations);
@@ -32,12 +35,10 @@ export default app;
 Examples below are assuming the code is in `convex/migrations.ts`.
 This is not required.
 
-Define the helper functions:
-
 ```ts
-import { components, internalMutation } from "./_generated/server.js";
+import { components, internalMutation } from "./_generated/server";
 import { defineMigrations } from "@convex-dev/migrations";
-import { internal } from "./_generated/api.js";
+import { internal } from "./_generated/api";
 
 export const migrations = new Migrations(components.migrations, {
   internalMutation,

@@ -65,7 +65,7 @@ export declare const components: {
       cancelAll: FunctionReference<
         "mutation",
         "internal",
-        {},
+        { sinceTs?: number },
         Array<{
           batchSize?: number;
           cursor?: string | null;
