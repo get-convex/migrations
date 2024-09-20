@@ -1,5 +1,5 @@
 {
-  "name": "@get-convex/migrations",
+  "name": "@convex-dev/migrations",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -52,7 +52,7 @@
     }
   },
   "dependencies": {
-    "convex": "1.16.0-alpha.2"
+    "convex": "^1.16.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

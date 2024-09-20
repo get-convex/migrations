@@ -36,16 +36,18 @@ export const DEFAULT_BATCH_SIZE = 100;
  * It will keep track of migration state.
  * Add in convex/migrations.ts for example:
  * ```ts
- * import defineMigrations from "@get-convex/migrations";
+ * import { Migrations } from "@convex-dev/migrations";
  * import { components } from "./_generated/api.js";
  * import { internalMutation } from "./_generated/server";
  *
- * export const { migration, run } = defineMigrations(components.migrations, { internalMutation });
+ * export const migrations = new Migrations(components.migrations, { internalMutation });
+ * // the private mutation to run migrations.
+ * export const run = migrations.runFromCLI();
  *
- * export const myMigration = migration({
+ * export const myMigration = migrations.define({
  *  table: "users",
  *  migrateOne: async (ctx, doc) => {
- *    await ctx.db.patch(doc._id, { newField: "value" });
+ *    await ctx.db.patch(doc._id, { someField: "value" });
  *  }
  * });
  * ```
@@ -53,44 +55,127 @@ export const DEFAULT_BATCH_SIZE = 100;
  * ```sh
  * npx convex run migrations:run '{"fn": "migrations:myMigration"}'
  * ```
- * @param internalMutation - The internal mutation to use for the migration.
+ * For starting a migration from code, see {@link runOne}/{@link runSerially}.
+ * @param component - The migrations component. It will be on components.migrations
+ * after being configured in in convex.config.js.
  * @param options - Configure options and set the internalMutation to use.
  */
-export function defineMigrations<DataModel extends GenericDataModel>(
-  migrationsComponent: UseApi<typeof api>,
-  options: {
-    /**
-     * Uses the internal mutation to run the migration.
-     * This also provides the types for your tables.
-     * ```ts
-     * import { internalMutation } from "./_generated/server.js";
-     * ```
-     */
-    internalMutation: MutationBuilder<DataModel, "internal">;
-    /**
-     * How many documents to process in a batch.
-     * Your migrateOne function will be called for each document in a batch in
-     * a single transaction.
-     */
-    defaultBatchSize?: number;
-    /**
-     * Prefix to add to the function name when running migrations.
-     * For example, if you have a function named "foo" in a file
-     * "convex/bar/baz.ts", you can set {migrationsLocationPrefix: "bar/baz:"}
-     * and then run:
-     * ```sh
-     * npx convex run migrations:run '{"fn": "foo"}'
-     * npx convex run migrations: '{"fn": "foo"}'
-     * ```
-     */
-    migrationsLocationPrefix?: string;
+export class Migrations<DataModel extends GenericDataModel> {
+  constructor(
+    public component: UseApi<typeof api>,
+    public options: {
+      /**
+       * Uses the internal mutation to run the migration.
+       * This also provides the types for your tables.
+       * ```ts
+       * import { internalMutation } from "./_generated/server.js";
+       * ```
+       */
+      internalMutation: MutationBuilder<DataModel, "internal">;
+      /**
+       * How many documents to process in a batch.
+       * Your migrateOne function will be called for each document in a batch in
+       * a single transaction.
+       */
+      defaultBatchSize?: number;
+      /**
+       * Prefix to add to the function name when running migrations.
+       * For example, if you have a function named "foo" in a file
+       * "convex/bar/baz.ts", you can set {migrationsLocationPrefix: "bar/baz:"}
+       * and then run:
+       * ```sh
+       * npx convex run migrations:run '{"fn": "foo"}'
+       * ```
+       */
+      migrationsLocationPrefix?: string;
+    }
+  ) {}
+
+  /**
+   * Creates a migration runner that can be called from the CLI or dashboard.
+   *
+   * For starting a migration from code, see {@link runOne}/{@link runSerially}.
+   *
+   * It can be created for a specific migration:
+   * ```ts
+   * export const runMyMigration = runFromCLI(internal.migrations.myMigration);
+   * ```
+   * CLI: `npx convex run migrations:runMyMigration`
+   *
+   * Or for any migration:
+   * ```ts
+   * export const run = runFromCLI();
+   * ```
+   * CLI: `npx convex run migrations:run '{"fn": "migrations:myMigration"}'`
+   *
+   * Where `myMigration` is the name of the migration function, defined in
+   * "convex/migrations.ts" along with the run function.
+   *
+   * @param specificMigration If you want a migration runner for one migration,
+   * pass in the migration function reference like `internal.migrations.foo`.
+   * Otherwise it will be a generic runner that requires the migration name.
+   * @returns An internal mutation,
+   */
+  runFromCLI(specificMigration?: MigrationFunctionReference) {
+    return internalMutationGeneric({
+      args: {
+        fn: v.optional(v.string()),
+        cursor: v.optional(v.union(v.string(), v.null())),
+        batchSize: v.optional(v.number()),
+        dryRun: v.optional(v.boolean()),
+        next: v.optional(v.array(v.string())),
+      },
+      handler: async (ctx, args) => {
+        // Future: Call it so that it can return the id: ctx.runMutation?
+        if (args.fn && specificMigration) {
+          throw new Error("Specify only one of fn or specificMigration");
+        }
+        if (!args.fn && !specificMigration) {
+          throw new Error(
+            `Specify the migration: '{"fn": "migrations:foo"}'\n` +
+              "Or initialize a `runFromCLI` runner specific to the migration like\n" +
+              "`export const runMyMigratio = runFromCLI(internal.migrations.myMigration)`"
+          );
+        }
+        const name = args.fn
+          ? this.prefixedName(args.fn)
+          : getFunctionName(specificMigration!);
+        async function makeFn(fn: string) {
+          try {
+            return await createFunctionHandle(
+              makeFunctionReference<"mutation">(fn)
+            );
+          } catch {
+            throw new Error(
+              `Can't find function ${fn}\n` +
+                "The name should match the folder/file:method\n" +
+                "See https://docs.convex.dev/functions/query-functions#query-names"
+            );
+          }
+        }
+        const fn = args.fn
+          ? await makeFn(name)
+          : await createFunctionHandle(specificMigration!);
+        const next =
+          args.next &&
+          (await Promise.all(
+            args.next.map(async (nextFn) => ({
+              name: this.prefixedName(nextFn),
+              fn: await makeFn(this.prefixedName(nextFn)),
+            }))
+          ));
+        return ctx.runMutation(this.component.public.runMigration, {
+          name,
+          fn,
+          cursor: args.cursor,
+          batchSize: args.batchSize,
+          next,
+          dryRun: args.dryRun ?? false,
+        });
+      },
+    });
   }
-) {
-  function prefixedName(name: string) {
-    return options.migrationsLocationPrefix && !name.includes(":")
-      ? `${options.migrationsLocationPrefix}${name}`
-      : name;
-  }
+
   /**
    * Use this to wrap a mutation that will be run over all documents in a table.
    * Your mutation only needs to handle changing one document at a time,
@@ -99,10 +184,10 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    *
    * In convex/migrations.ts for example:
    * ```ts
-   * export const foo = migration({
+   * export const foo = migrations.define({
    *  table: "users",
    *  migrateOne: async (ctx, doc) => {
-   *   await ctx.db.patch(doc._id, { newField: "value" });
+   *   await ctx.db.patch(doc._id, { someField: "value" });
    *  },
    * });
    * ```
@@ -128,7 +213,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    * The fn is the string form of the function reference. See:
    * https://docs.convex.dev/functions/query-functions#query-names
    *
-   * See {@link startMigration} and {@link startMigrationsSerially} for programmatic use.
+   * See {@link runOne} and {@link runSerially} for programmatic use.
    *
    * @param table - The table to run the migration over.
    * @param migrateOne - The function to run on each document.
@@ -137,7 +222,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    *   or {@link DEFAULT_BATCH_SIZE}. Overriden by arg at runtime if supplied.
    * @returns An internal mutation that runs the migration.
    */
-  function migration<TableName extends TableNamesInDataModel<DataModel>>({
+  define<TableName extends TableNamesInDataModel<DataModel>>({
     table,
     migrateOne,
     customRange,
@@ -158,11 +243,11 @@ export function defineMigrations<DataModel extends GenericDataModel>(
   }) {
     const defaultBatchSize =
       functionDefaultBatchSize ??
-      options?.defaultBatchSize ??
+      this.options.defaultBatchSize ??
       DEFAULT_BATCH_SIZE;
     // Under the hood it's an internal mutation that calls the migrateOne
     // function for every document in a page, recursively scheduling batches.
-    return options.internalMutation({
+    return this.options.internalMutation({
       args: migrationArgs,
       returns: migrationResult,
       handler: async (ctx, args) => {
@@ -247,57 +332,14 @@ export function defineMigrations<DataModel extends GenericDataModel>(
     >;
   }
 
-  const run = internalMutationGeneric({
-    args: {
-      fn: v.string(),
-      cursor: v.optional(v.union(v.string(), v.null())),
-      batchSize: v.optional(v.number()),
-      dryRun: v.optional(v.boolean()),
-      next: v.optional(v.array(v.string())),
-    },
-    handler: async (ctx, args) => {
-      // Future: Call it so that it can return the id: ctx.runMutation?
-      const name = prefixedName(args.fn);
-      async function makeFn(fn: string) {
-        try {
-          return await createFunctionHandle(
-            makeFunctionReference<"mutation">(fn)
-          );
-        } catch {
-          throw new Error(
-            `Can't find function ${fn}\n` +
-              "The name should match the folder/file:method\n" +
-              "See https://docs.convex.dev/functions/query-functions#query-names"
-          );
-        }
-      }
-      const next =
-        args.next &&
-        (await Promise.all(
-          args.next.map(async (nextFn) => ({
-            name: prefixedName(nextFn),
-            fn: await makeFn(prefixedName(nextFn)),
-          }))
-        ));
-      await ctx.runMutation(migrationsComponent.public.runMigration, {
-        name,
-        fn: await makeFn(name),
-        cursor: args.cursor,
-        batchSize: args.batchSize,
-        next,
-        dryRun: args.dryRun ?? false,
-      });
-    },
-  });
-
   /**
    * Start a migration from a server function via a function reference.
    *
    * ```ts
-   * const { startMigration } = defineMigrations(components.migrations, { internalMutation });
+   * const migrations = new Migrations(components.migrations, { internalMutation });
    *
    * // in a mutation or action:
-   *   await startMigration(ctx, internal.migrations.myMigration, {
+   *   await migrations.runOne(ctx, internal.migrations.myMigration, {
    *     startCursor: null, // optional override
    *     batchSize: 10, // optional override
    *   });
@@ -307,14 +349,14 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    * If it's already in progress, it will no-op.
    * If you run a migration that had previously failed which was part of a series,
    * it will not resume the series.
-   * To resume a series, call the series again: {@link startMigrationsSerially}.
+   * To resume a series, call the series again: {@link Migrations.runSerially}.
    *
    * Note: It's up to you to determine if it's safe to run a migration while
    * others are in progress. It won't run multiple instance of the same migration
    * but it currently allows running multiple migrations on the same table.
    *
-   * @param ctx ctx from an action or mutation. It only uses the scheduler.
-   * @param fnRef The migration function to run. Like internal.migrations.foo.
+   * @param ctx Context from a mutation or action. Needs `runMutation`.
+   * @param fnRef The migration function to run. Like `internal.migrations.foo`.
    * @param opts Options to start the migration.
    * @param opts.startCursor The cursor to start from.
    *   null: start from the beginning.
@@ -323,7 +365,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    * @param opts.dryRun If true, it will run a batch and then throw an error.
    *   It's helpful to see what it would do without committing the transaction.
    */
-  async function startMigration(
+  async runOne(
     ctx: RunMutationCtx,
     fnRef: MigrationFunctionReference,
     opts?: {
@@ -333,7 +375,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
     }
   ) {
     // Future: Call it so that it can return the id: ctx.runMutation?
-    await ctx.runMutation(migrationsComponent.public.runMigration, {
+    await ctx.runMutation(this.component.public.runMigration, {
       name: getFunctionName(fnRef),
       fn: await createFunctionHandle(fnRef),
       cursor: opts?.startCursor,
@@ -346,10 +388,10 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    * Start a series of migrations, running one a time. Each call starts a series.
    *
    * ```ts
-   * const { startMigrationSerially } = defineMigrations(components.migrations, { internalMutation });
+   * const migrations = new Migrations(components.migrations, { internalMutation });
    *
    * // in a mutation or action:
-   *   await startMigrationsSerially(ctx, [
+   *   await migrations.runSerially(ctx, [
    *    internal.migrations.myMigration,
    *    internal.migrations.myOtherMigration,
    *   ]);
@@ -374,13 +416,10 @@ export function defineMigrations<DataModel extends GenericDataModel>(
    *
    * To stop a migration in progress, see {@link cancelMigration}.
    *
-   * @param ctx ctx from an action or mutation. Only needs the scheduler.
+   * @param ctx Context from a mutation or action. Needs `runMutation`.
    * @param fnRefs The migrations to run in order. Like [internal.migrations.foo].
    */
-  async function startMigrationsSerially(
-    ctx: RunMutationCtx,
-    fnRefs: MigrationFunctionReference[]
-  ) {
+  async runSerially(ctx: RunMutationCtx, fnRefs: MigrationFunctionReference[]) {
     if (fnRefs.length === 0) return;
     const [fnRef, ...rest] = fnRefs;
     const next = await Promise.all(
@@ -389,7 +428,7 @@ export function defineMigrations<DataModel extends GenericDataModel>(
         fn: await createFunctionHandle(fnRef),
       }))
     );
-    await ctx.runMutation(migrationsComponent.public.runMigration, {
+    await ctx.runMutation(this.component.public.runMigration, {
       name: getFunctionName(fnRef),
       fn: await createFunctionHandle(fnRef),
       next,
@@ -399,12 +438,12 @@ export function defineMigrations<DataModel extends GenericDataModel>(
 
   /**
    * Get the status of a migration or all migrations.
-   * @param ctx Context from a mutation or query.
+   * @param ctx Context from a query, mutation or action. Needs `runQuery`.
    * @param migrations The migrations to get the status of. Defaults to all.
    * @param limit How many migrations to fetch, if not specified by name.
    * @returns The status of the migrations, in the order of the input.
    */
-  async function getStatus(
+  async getStatus(
     ctx: RunQueryCtx,
     {
       migrations,
@@ -415,9 +454,9 @@ export function defineMigrations<DataModel extends GenericDataModel>(
     }
   ): Promise<MigrationStatus[]> {
     const migrationNames = migrations?.map((m) =>
-      typeof m === "string" ? prefixedName(m) : getFunctionName(m)
+      typeof m === "string" ? this.prefixedName(m) : getFunctionName(m)
     );
-    return ctx.runQuery(migrationsComponent.public.getStatus, {
+    return ctx.runQuery(this.component.public.getStatus, {
       migrationNames,
       limit,
     });
@@ -426,32 +465,45 @@ export function defineMigrations<DataModel extends GenericDataModel>(
   /**
    * Cancels a migration if it's in progress.
    * You can resume it later by calling the migration without an explicit cursor.
-   * If the migration had "next" migrations, e.g. from startMigrationsSerially,
+   * If the migration had "next" migrations, e.g. from {@link runSerially},
    * they will not run. To resume, call the series again or manually pass "next".
-   * @param ctx Context from a query or mutation. Only needs the db and scheduler.
-   * @param migrationId Migration to cancel. Get from status or logs.
+   * @param ctx Context from a mutation or action. Needs `runMutation`.
+   * @param migration Migration to cancel. Either the name like "migrations:foo"
+   * or the function reference like `internal.migrations.foo`.
    * @returns The status of the migration after attempting to cancel it.
    */
-  async function cancelMigration(
+  async cancel(
     ctx: RunMutationCtx,
     migration: MigrationFunctionReference | string
   ): Promise<MigrationStatus> {
     const name =
       typeof migration === "string"
-        ? prefixedName(migration)
+        ? this.prefixedName(migration)
         : getFunctionName(migration);
-    return await ctx.runMutation(migrationsComponent.public.cancel, {
+    return ctx.runMutation(this.component.public.cancel, {
       name,
     });
   }
-  return {
-    migration,
-    run,
-    startMigration,
-    startMigrationsSerially,
-    getStatus,
-    cancelMigration,
-  };
+
+  /**
+   * Cancels all migrations that are in progress.
+   * You can resume it later by calling the migration without an explicit cursor.
+   * If the migration had "next" migrations, e.g. from {@link runSerially},
+   * they will not run. To resume, call the series again or manually pass "next".
+   * @param ctx Context from a mutation or action. Needs `runMutation`.
+   * @returns The status of up to 100 of the canceled migrations.
+   */
+  async cancelAll(ctx: RunMutationCtx) {
+    return ctx.runMutation(this.component.public.cancelAll, {});
+  }
+
+  // Helper to prefix the name with the location.
+  // migrationsLocationPrefix of "bar/baz:" and name "foo" => "bar/baz:foo"
+  private prefixedName(name: string) {
+    return this.options.migrationsLocationPrefix && !name.includes(":")
+      ? `${this.options.migrationsLocationPrefix}${name}`
+      : name;
+  }
 }
 
 export type MigrationFunctionReference = FunctionReference<

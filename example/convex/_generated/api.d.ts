@@ -39,4 +39,98 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
+export declare const components: {
+  migrations: {
+    public: {
+      cancel: FunctionReference<
+        "mutation",
+        "internal",
+        { name: string },
+        {
+          batchSize?: number;
+          cursor?: string | null;
+          isDone: boolean;
+          latestStart?: number;
+          name: string;
+          next?: Array<string>;
+          processed: number;
+          workerStatus?:
+            | "pending"
+            | "inProgress"
+            | "success"
+            | "failed"
+            | "canceled";
+        }
+      >;
+      cancelAll: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        Array<{
+          batchSize?: number;
+          cursor?: string | null;
+          isDone: boolean;
+          latestStart?: number;
+          name: string;
+          next?: Array<string>;
+          processed: number;
+          workerStatus?:
+            | "pending"
+            | "inProgress"
+            | "success"
+            | "failed"
+            | "canceled";
+        }>
+      >;
+      getStatus: FunctionReference<
+        "query",
+        "internal",
+        { limit?: number; migrationNames?: Array<string> },
+        Array<{
+          batchSize?: number;
+          cursor?: string | null;
+          isDone: boolean;
+          latestStart?: number;
+          name: string;
+          next?: Array<string>;
+          processed: number;
+          workerStatus?:
+            | "pending"
+            | "inProgress"
+            | "success"
+            | "failed"
+            | "canceled";
+        }>
+      >;
+      runMigration: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          batchSize?: number;
+          cursor?: string | null;
+          dryRun: boolean;
+          fn: string;
+          name: string;
+          next?: Array<{ fn: string; name: string }>;
+        },
+        {
+          batchSize?: number;
+          cursor?: string | null;
+          isDone: boolean;
+          latestStart?: number;
+          name: string;
+          next?: Array<string>;
+          processed: number;
+          workerStatus?:
+            | "pending"
+            | "inProgress"
+            | "success"
+            | "failed"
+            | "canceled";
+        }
+      >;
+    };
+  };
+};
+
 /* prettier-ignore-end */

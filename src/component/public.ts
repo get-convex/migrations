@@ -33,6 +33,7 @@ export const runMigration = mutation({
     ),
     dryRun: v.boolean(),
   },
+  returns: migrationStatus,
   handler: async (ctx, args) => {
     // Step 1: Get or create the state.
     const { fn, batchSize, next: next_, dryRun, ...initialState } = args;
@@ -65,7 +66,7 @@ export const runMigration = mutation({
       ) {
         // Case 3. The migration is already in progress.
         console.debug({ state, worker });
-        return state;
+        return getMigrationState(ctx, state);
       }
       // Case 2. Update the cursor.
       if (args.cursor !== undefined) {
@@ -159,7 +160,7 @@ export const runMigration = mutation({
       console.debug({ args, state });
       throw new Error("Dry run - rolling back transaction.");
     }
-    return state;
+    return getMigrationState(ctx, state);
   },
 });
 
@@ -251,28 +252,23 @@ async function cancelMigration(ctx: MutationCtx, migration: Doc<"migrations">) {
 }
 
 export const cancelAll = mutation({
-  args: {},
-  // TODO: when we support pagination, we can recursively paginate here.
-  // args: { cursor: v.optional(v.string()) },
+  // Paginating with creation time for now
+  args: { sinceTs: v.optional(v.number()) },
   returns: v.array(migrationStatus),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const results = await ctx.db
       .query("migrations")
-      .withIndex("isDone", (q) => q.eq("isDone", false))
+      .withIndex("isDone", (q) =>
+        args.sinceTs
+          ? q.eq("isDone", false).gte("_creationTime", args.sinceTs)
+          : q.eq("isDone", false)
+      )
       .take(100);
     if (results.length === 100) {
-      await ctx.scheduler.runAfter(0, api.public.cancelAll, {});
+      await ctx.scheduler.runAfter(0, api.public.cancelAll, {
+        sinceTs: results[results.length - 1]!._creationTime,
+      });
     }
     return Promise.all(results.map((m) => cancelMigration(ctx, m)));
-    // const results = await ctx.db
-    //   .query("migrations")
-    //   .withIndex("isDone", (q) => q.eq("isDone", false))
-    //   .paginate({ cursor: args.cursor ?? null, numItems: 100 });
-    // if (!results.isDone) {
-    //   await ctx.scheduler.runAfter(0, api.public.cancelAll, {
-    //     cursor: results.continueCursor,
-    //   });
-    // }
-    // return Promise.all(results.page.map((m) => cancelMigration(ctx, m)));
   },
 });

@@ -101,7 +101,21 @@ export type Mounts = {
         name: string;
         next?: Array<{ fn: string; name: string }>;
       },
-      any
+      {
+        batchSize?: number;
+        cursor?: string | null;
+        isDone: boolean;
+        latestStart?: number;
+        name: string;
+        next?: Array<string>;
+        processed: number;
+        workerStatus?:
+          | "pending"
+          | "inProgress"
+          | "success"
+          | "failed"
+          | "canceled";
+      }
     >;
   };
 };
@@ -118,5 +132,7 @@ export declare const internal: FilterApi<
   typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};
 
 /* prettier-ignore-end */
