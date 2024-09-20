@@ -39,15 +39,19 @@ import { components, internalMutation } from "./_generated/server.js";
 import { defineMigrations } from "@convex-dev/migrations";
 import { internal } from "./_generated/api.js";
 
-export const { run, migration } = defineMigrations(components.migrations, {
+export const migrations = new Migrations(components.migrations, {
   internalMutation,
 });
 ```
 
+The `internalMutation` argument is optional, but recommended.
+It provides type safety for your migrations and a way to provide a custom
+`internalMutation` if you have database wrappers configured, such as triggers.
+
 Define migrations:
 
 ```ts
-export const setDefaultValue = migration({
+export const setDefaultValue = migrations.define({
   table: "myTable",
   migrateOne: async (ctx, doc) => {
     if (doc.optionalField === undefined) {
@@ -57,13 +61,20 @@ export const setDefaultValue = migration({
 });
 
 // Shorthand
-export const clearField = migration({
+export const clearField = migrations.define({
   table: "myTable",
   migrateOne: async (ctx, doc) => ({ optionalField: undefined }),
 });
 ```
 
-Run it from the CLI:
+Run it from the CLI by first defining a `run` function:
+
+```ts
+// in convex/migrations.ts for example
+export const run = migrations.runFromCLI();
+```
+
+Then run it:
 
 ```sh
 npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'
@@ -71,17 +82,6 @@ npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'
 
 See [this article](https://stack.convex.dev/migrating-data-with-mutations)
 for more information on usage and advanced patterns.
-
-## Maintainers / Developers
-
-Run the example:
-
-```ts
-npm i
-cd example
-npm i
-npm run dev
-```
 
 # 🧑‍🏫 What is Convex?
 
