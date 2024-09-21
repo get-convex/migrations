@@ -14,7 +14,7 @@ Install the component package:
 npm install @convex-dev/migrations
 ```
 
-Create a `convex.config.ts` file in your app's `convex/` folder and install the component by calling `use`:
+Create a `convex.config.js` file in your app's `convex/` folder and install the component by calling `use`:
 
 ```ts
 // convex/convex.config.js
