@@ -1,6 +1,8 @@
-# Stateful Migrations Convex Component
+# Convex Stateful Migrations Component
 
 [![npm version](https://badge.fury.io/js/@convex-dev%2Fmigrations.svg)](https://badge.fury.io/js/@convex-dev%2Fmigrations)
+
+**Note: Convex Components are currently in beta**
 
 Define migrations, like this one setting a default value for users:
 
@@ -16,20 +18,7 @@ export const setDefaultValue = migrations.define({
 });
 ```
 
-Run them from the CLI: `npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'`
-
-Or from a server function:
-
-```ts
-const allMigrations = [
-  internal.migrations.setDefaultValue,
-  internal.migrations.validateRequiredField,
-  internal.migrations.convertUnionField,
-];
-await migrations.runSerially(ctx, allMigrations);
-```
-
-See [this article](https://stack.convex.dev/migrating-data-with-mutations) for more information.
+See [below](#usage) and [this article](https://stack.convex.dev/migrating-data-with-mutations) for more information.
 
 ### Convex App
 
@@ -76,7 +65,7 @@ The `internalMutation` argument is optional, but recommended.
 It provides type safety for your migrations and a way to provide a custom
 `internalMutation` if you have database wrappers configured, such as triggers.
 
-Define migrations:
+### Define migrations:
 
 ```ts
 export const setDefaultValue = migrations.define({
@@ -93,29 +82,54 @@ export const clearField = migrations.define({
   table: "myTable",
   migrateOne: async (ctx, doc) => ({ optionalField: undefined }),
 });
+
+export const validateRequiredField = migrations.define({
+  table: "myTable",
+  // Specify a custom range to only include documents that need to change.
+  // This is useful if you have a large dataset and only a small percentage of
+  // documents need to be migrated.
+  customRange: (q) =>
+    q.withIndex("requiredField", (q) => q.eq("requiredField", "")),
+  migrateOne: async (_ctx, doc) => {
+    console.log("Needs fixup: " + doc._id);
+    // Shorthand for patching
+    return { requiredField: "<empty>" };
+  },
+});
 ```
 
-Run it from the CLI by first defining a `run` function:
+### Run it from the CLI by first defining a `run` function:
 
 ```ts
 // in convex/migrations.ts for example
 export const run = migrations.runFromCLI();
+
+// Or define a single runner:
+export const runIt = migrations.runFromCLI(internal.migrations.setDefaultValue);
 ```
 
 Then run it:
 
 ```sh
 npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'
+
+# or
+npx convex run migrations:runIt
 ```
 
-Or define a single runner:
+You can also run one or more from a server function:
 
 ```ts
-// in convex/migrations.ts for example
-export const runOne = migrations.runFromCLI(internal.migrations.foo);
+await migrations.runOne(ctx, internal.example.setDefaultValue);
+// Or run a series of migrations in order, e.g. if they depend on each other
+// or as part of a post-deploy script:
+const allMigrations = [
+  internal.migrations.setDefaultValue,
+  internal.migrations.validateRequiredField,
+  internal.migrations.convertUnionField,
+];
+await migrations.runSerially(ctx, allMigrations);
 ```
-
-And just run: `npx convex run migrations:runOne`
 
 See [this article](https://stack.convex.dev/migrating-data-with-mutations)
 for more information on usage and advanced patterns.
