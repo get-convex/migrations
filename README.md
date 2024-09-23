@@ -52,9 +52,9 @@ Examples below are assuming the code is in `convex/migrations.ts`.
 This is not required.
 
 ```ts
-import { components, internalMutation } from "./_generated/server";
-import { defineMigrations } from "@convex-dev/migrations";
-import { internal } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
+import { Migrations } from "@convex-dev/migrations";
+import { components, internal } from "./_generated/api";
 
 export const migrations = new Migrations(components.migrations, {
   internalMutation,
