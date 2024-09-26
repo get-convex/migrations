@@ -30,6 +30,22 @@ import { ConvexError, GenericId, v } from "convex/values";
 
 export const DEFAULT_BATCH_SIZE = 100;
 
+type RemoveCallSignature<T> = {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  [K in keyof T as T[K] extends Function ? K : never]: T[K];
+} & {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  [K in keyof T as T[K] extends Function ? never : K]: T[K];
+};
+
+// A looser type for internalMutation because Convex function wrappers
+// are not assignable across convex packages.
+export type InternalMutationWrapperGeneric = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...args: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+) => RemoveCallSignature<RegisteredMutation<"internal", any, any>>;
+
 /**
  * Makes the migration wrapper, with types for your own tables.
  *
@@ -71,7 +87,7 @@ export class Migrations<DataModel extends GenericDataModel> {
        * import { internalMutation } from "./_generated/server.js";
        * ```
        */
-      internalMutation?: MutationBuilder<DataModel, "internal">;
+      internalMutation?: InternalMutationWrapperGeneric;
       /**
        * How many documents to process in a batch.
        * Your migrateOne function will be called for each document in a batch in
@@ -248,8 +264,10 @@ export class Migrations<DataModel extends GenericDataModel> {
     // Under the hood it's an internal mutation that calls the migrateOne
     // function for every document in a page, recursively scheduling batches.
     return (
-      this.options.internalMutation ??
-      (internalMutationGeneric as MutationBuilder<DataModel, "internal">)
+      (this.options.internalMutation as MutationBuilder<
+        DataModel,
+        "internal"
+      >) ?? (internalMutationGeneric as MutationBuilder<DataModel, "internal">)
     )({
       args: migrationArgs,
       returns: migrationResult,
