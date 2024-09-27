@@ -1,4 +1,4 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError, ObjectType, v } from "convex/values";
 import { mutation, MutationCtx, query, QueryCtx } from "./_generated/server.js";
 import { FunctionHandle } from "convex/server";
 import {
@@ -16,23 +16,25 @@ export type MigrationFunctionHandle = FunctionHandle<
   MigrationResult
 >;
 
-export const runMigration = mutation({
-  args: {
-    name: v.string(),
-    fn: v.string(),
-    cursor: v.optional(v.union(v.string(), v.null())),
+const runMigrationArgs = {
+  name: v.string(),
+  fn: v.string(),
+  cursor: v.optional(v.union(v.string(), v.null())),
 
-    batchSize: v.optional(v.number()),
-    next: v.optional(
-      v.array(
-        v.object({
-          name: v.string(),
-          fn: v.string(),
-        })
-      )
-    ),
-    dryRun: v.boolean(),
-  },
+  batchSize: v.optional(v.number()),
+  next: v.optional(
+    v.array(
+      v.object({
+        name: v.string(),
+        fn: v.string(),
+      })
+    )
+  ),
+  dryRun: v.boolean(),
+};
+
+export const runMigration = mutation({
+  args: runMigrationArgs,
   returns: migrationStatus,
   handler: async (ctx, args) => {
     // Step 1: Get or create the state.
@@ -210,6 +212,9 @@ async function getMigrationState(
 ): Promise<MigrationStatus> {
   const { name, cursor, processed, isDone, latestStart, workerId } = migration;
   const worker = workerId && (await ctx.db.system.get(workerId));
+  const args = worker?.args[0] as
+    | ObjectType<typeof runMigrationArgs>
+    | undefined;
   return {
     name,
     cursor,
@@ -217,8 +222,8 @@ async function getMigrationState(
     isDone,
     latestStart,
     workerStatus: worker?.state.kind,
-    batchSize: worker?.args[0]?.batchSize,
-    next: worker?.args[0]?.next.map((n: { name: string }) => n.name),
+    batchSize: args?.batchSize,
+    next: args?.next?.map((n: { name: string }) => n.name),
   };
 }
 
