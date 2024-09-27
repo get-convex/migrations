@@ -6,19 +6,6 @@ import { internalMutation, internalQuery } from "./_generated/server.js";
 
 export const migrations = new Migrations<DataModel>(components.migrations);
 
-export const seed = internalMutation({
-  args: { count: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    for (let i = 0; i < (args.count ?? 10); i++) {
-      await ctx.db.insert("myTable", {
-        requiredField: "seed " + i,
-        optionalField: i % 2 ? "optionalValue" : undefined,
-        unionField: i % 2 ? "1" : 1,
-      });
-    }
-  },
-});
-
 // Allows you to run `npx convex run example:run '{"fn":"example:setDefaultValue"}'`
 export const run = migrations.runFromCLI();
 
@@ -103,5 +90,18 @@ export const getStatus = internalQuery({
     return migrations.getStatus(ctx, {
       migrations: allMigrations,
     });
+  },
+});
+
+export const seed = internalMutation({
+  args: { count: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    for (let i = 0; i < (args.count ?? 10); i++) {
+      await ctx.db.insert("myTable", {
+        requiredField: "seed " + i,
+        optionalField: i % 2 ? "optionalValue" : undefined,
+        unionField: i % 2 ? "1" : 1,
+      });
+    }
   },
 });
