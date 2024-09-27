@@ -52,18 +52,14 @@ Examples below are assuming the code is in `convex/migrations.ts`.
 This is not required.
 
 ```ts
-import { internalMutation } from "./_generated/server";
 import { Migrations } from "@convex-dev/migrations";
-import { components, internal } from "./_generated/api";
+import { components } from "./_generated/api";
 
-export const migrations = new Migrations(components.migrations, {
-  internalMutation,
-});
+export const migrations = new Migrations(components.migrations);
+export const run = migrations.runFromCLI();
 ```
 
-The `internalMutation` argument is optional, but recommended.
-It provides type safety for your migrations and a way to provide a custom
-`internalMutation` if you have database wrappers configured, such as triggers.
+See [below to see how to add type safety](#add-type-safety)
 
 ### Define migrations:
 
@@ -129,6 +125,37 @@ const allMigrations = [
   internal.migrations.convertUnionField,
 ];
 await migrations.runSerially(ctx, allMigrations);
+```
+
+### Add type safety
+
+You can add type safety to your migrations by adding a type parameter:
+
+```ts
+import { Migrations } from "@convex-dev/migrations";
+import { components } from "./_generated/api.js";
+import { DataModel } from "./_generated/dataModel.js";
+
+export const migrations = new Migrations<DataModel>(components.migrations);
+```
+
+### Override the internalMutation to apply custom DB behavior
+
+You can customize which `internalMutation` implementation the underly migration should use.
+
+This might be important if you use [custom functions](https://stack.convex.dev/custom-functions)
+to intercept database writes to apply validation or trigger operations on changes.
+
+Assuming you define your own `internalMutation` in `convex/functions.ts`:
+
+```ts
+import { internalMutation } from "./functions";
+import { Migrations } from "@convex-dev/migrations";
+import { components } from "./_generated/api";
+
+export const migrations = new Migrations(components.migrations, {
+  internalMutation,
+});
 ```
 
 See [this article](https://stack.convex.dev/migrating-data-with-mutations)

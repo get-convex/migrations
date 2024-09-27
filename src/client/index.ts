@@ -30,22 +30,6 @@ import { ConvexError, GenericId, v } from "convex/values";
 
 export const DEFAULT_BATCH_SIZE = 100;
 
-type RemoveCallSignature<T> = {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  [K in keyof T as T[K] extends Function ? K : never]: T[K];
-} & {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  [K in keyof T as T[K] extends Function ? never : K]: T[K];
-};
-
-// A looser type for internalMutation because Convex function wrappers
-// are not assignable across convex packages.
-export type InternalMutationWrapperGeneric = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ...args: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-) => RemoveCallSignature<RegisteredMutation<"internal", any, any>>;
-
 /**
  * Makes the migration wrapper, with types for your own tables.
  *
@@ -79,7 +63,7 @@ export type InternalMutationWrapperGeneric = (
 export class Migrations<DataModel extends GenericDataModel> {
   constructor(
     public component: UseApi<typeof api>,
-    public options: {
+    public options?: {
       /**
        * Uses the internal mutation to run the migration.
        * This also provides the types for your tables.
@@ -259,12 +243,12 @@ export class Migrations<DataModel extends GenericDataModel> {
   }) {
     const defaultBatchSize =
       functionDefaultBatchSize ??
-      this.options.defaultBatchSize ??
+      this.options?.defaultBatchSize ??
       DEFAULT_BATCH_SIZE;
     // Under the hood it's an internal mutation that calls the migrateOne
     // function for every document in a page, recursively scheduling batches.
     return (
-      (this.options.internalMutation as MutationBuilder<
+      (this.options?.internalMutation as MutationBuilder<
         DataModel,
         "internal"
       >) ?? (internalMutationGeneric as MutationBuilder<DataModel, "internal">)
@@ -524,7 +508,7 @@ export class Migrations<DataModel extends GenericDataModel> {
   // Helper to prefix the name with the location.
   // migrationsLocationPrefix of "bar/baz:" and name "foo" => "bar/baz:foo"
   private prefixedName(name: string) {
-    return this.options.migrationsLocationPrefix && !name.includes(":")
+    return this.options?.migrationsLocationPrefix && !name.includes(":")
       ? `${this.options.migrationsLocationPrefix}${name}`
       : name;
   }
@@ -571,3 +555,20 @@ export type UseApi<API> = Expand<{
       >
     : UseApi<API[mod]>;
 }>;
+
+type RemoveCallSignature<T> = {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  [K in keyof T as T[K] extends Function ? K : never]: T[K];
+} & {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  [K in keyof T as T[K] extends Function ? never : K]: T[K];
+};
+
+// A looser type for internalMutation because Convex function wrappers
+// are not assignable across convex packages.
+export type InternalMutationWrapperGeneric = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...args: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+) => RemoveCallSignature<RegisteredMutation<"internal", any, any>>;
+//RegisteredMutation<"internal", any, any>;

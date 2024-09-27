@@ -4,9 +4,7 @@ import { components, internal } from "./_generated/api.js";
 import { DataModel } from "./_generated/dataModel.js";
 import { internalMutation, internalQuery } from "./_generated/server.js";
 
-export const migrations = new Migrations<DataModel>(components.migrations, {
-  internalMutation,
-});
+export const migrations = new Migrations<DataModel>(components.migrations);
 
 export const seed = internalMutation({
   args: { count: v.optional(v.number()) },
