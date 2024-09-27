@@ -53,13 +53,15 @@ This is not required.
 
 ```ts
 import { Migrations } from "@convex-dev/migrations";
-import { components } from "./_generated/api";
+import { components } from "./_generated/api.js";
+import { DataModel } from "./_generated/dataModel.js";
 
-export const migrations = new Migrations(components.migrations);
+export const migrations = new Migrations<DataModel>(components.migrations);
 export const run = migrations.runFromCLI();
 ```
 
-See [below to see how to add type safety](#add-type-safety)
+The type parameter `DataModel` is optional. It provides type safety for migration definitions.
+As always, database operations in migrations will abide by your schema definition at runtime.
 
 ### Define migrations:
 
@@ -125,18 +127,6 @@ const allMigrations = [
   internal.migrations.convertUnionField,
 ];
 await migrations.runSerially(ctx, allMigrations);
-```
-
-### Add type safety
-
-You can add type safety to your migrations by adding a type parameter:
-
-```ts
-import { Migrations } from "@convex-dev/migrations";
-import { components } from "./_generated/api.js";
-import { DataModel } from "./_generated/dataModel.js";
-
-export const migrations = new Migrations<DataModel>(components.migrations);
 ```
 
 ### Override the internalMutation to apply custom DB behavior
