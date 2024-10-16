@@ -4,14 +4,14 @@
   "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "dev": "convex dev --live-component-sources",
+    "dev": "convex dev --live-component-sources --typecheck-components",
     "dev:frontend": "vite",
     "logs": "convex logs",
     "lint": "tsc -p convex && eslint convex"
   },
   "dependencies": {
     "@convex-dev/migrations": "file:..",
-    "convex": "^1.16.2",
+    "convex": "file:../node_modules/convex",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
