@@ -18,7 +18,7 @@ export type MigrationFunctionHandle = FunctionHandle<
 
 const runMigrationArgs = {
   name: v.string(),
-  fn: v.string(),
+  fnHandle: v.string(),
   cursor: v.optional(v.union(v.string(), v.null())),
 
   batchSize: v.optional(v.number()),
@@ -26,7 +26,7 @@ const runMigrationArgs = {
     v.array(
       v.object({
         name: v.string(),
-        fn: v.string(),
+        fnHandle: v.string(),
       })
     )
   ),
@@ -38,7 +38,7 @@ export const runMigration = mutation({
   returns: migrationStatus,
   handler: async (ctx, args) => {
     // Step 1: Get or create the state.
-    const { fn, batchSize, next: next_, dryRun, ...initialState } = args;
+    const { fnHandle, batchSize, next: next_, dryRun, ...initialState } = args;
     const state =
       (await ctx.db
         .query("migrations")
@@ -82,11 +82,14 @@ export const runMigration = mutation({
 
     // Step 2: Run the migration.
     try {
-      const result = await ctx.runMutation(fn as MigrationFunctionHandle, {
-        cursor: state.cursor,
-        batchSize,
-        dryRun,
-      });
+      const result = await ctx.runMutation(
+        fnHandle as MigrationFunctionHandle,
+        {
+          cursor: state.cursor,
+          batchSize,
+          dryRun,
+        }
+      );
       state.cursor = result.continueCursor;
       state.isDone = result.isDone;
       state.processed += result.processed;
@@ -133,7 +136,7 @@ export const runMigration = mutation({
           if (nextFn) {
             await ctx.scheduler.runAfter(0, api.public.runMigration, {
               name: nextFn.name,
-              fn: nextFn.fn,
+              fnHandle: nextFn.fnHandle,
               next: rest,
               batchSize,
               dryRun,
@@ -148,7 +151,7 @@ export const runMigration = mutation({
         }
       } else {
         console.debug(
-          `Migration ${fn} is done.` +
+          `Migration ${args.name} is done.` +
             (i < next.length ? ` Next: ${next[i]!.name}` : "")
         );
       }

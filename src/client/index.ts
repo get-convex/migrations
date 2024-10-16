@@ -153,7 +153,7 @@ export class Migrations<DataModel extends GenericDataModel> {
             );
           }
         }
-        const fn = args.fn
+        const fnHandle = args.fn
           ? await makeFn(name)
           : await createFunctionHandle(specificMigration!);
         const next =
@@ -161,12 +161,12 @@ export class Migrations<DataModel extends GenericDataModel> {
           (await Promise.all(
             args.next.map(async (nextFn) => ({
               name: this.prefixedName(nextFn),
-              fn: await makeFn(this.prefixedName(nextFn)),
+              fnHandle: await makeFn(this.prefixedName(nextFn)),
             }))
           ));
         return ctx.runMutation(this.component.public.runMigration, {
           name,
-          fn,
+          fnHandle,
           cursor: args.cursor,
           batchSize: args.batchSize,
           next,
@@ -385,7 +385,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     // Future: Call it so that it can return the id: ctx.runMutation?
     await ctx.runMutation(this.component.public.runMigration, {
       name: getFunctionName(fnRef),
-      fn: await createFunctionHandle(fnRef),
+      fnHandle: await createFunctionHandle(fnRef),
       cursor: opts?.startCursor,
       batchSize: opts?.batchSize,
       dryRun: opts?.dryRun ?? false,
@@ -433,12 +433,12 @@ export class Migrations<DataModel extends GenericDataModel> {
     const next = await Promise.all(
       rest.map(async (fnRef) => ({
         name: getFunctionName(fnRef),
-        fn: await createFunctionHandle(fnRef),
+        fnHandle: await createFunctionHandle(fnRef),
       }))
     );
     await ctx.runMutation(this.component.public.runMigration, {
       name: getFunctionName(fnRef),
-      fn: await createFunctionHandle(fnRef),
+      fnHandle: await createFunctionHandle(fnRef),
       next,
       dryRun: false,
     });

@@ -97,9 +97,9 @@ export type Mounts = {
         batchSize?: number;
         cursor?: string | null;
         dryRun: boolean;
-        fn: string;
+        fnHandle: string;
         name: string;
-        next?: Array<{ fn: string; name: string }>;
+        next?: Array<{ fnHandle: string; name: string }>;
       },
       {
         batchSize?: number;
