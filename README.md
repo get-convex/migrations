@@ -4,6 +4,8 @@
 
 **Note: Convex Components are currently in beta**
 
+<!-- START: Include on https://convex.dev/components -->
+
 Define migrations, like this one setting a default value for users:
 
 ```ts
@@ -150,6 +152,8 @@ export const migrations = new Migrations(components.migrations, {
 
 See [this article](https://stack.convex.dev/migrating-data-with-mutations)
 for more information on usage and advanced patterns.
+
+<!-- END: Include on https://convex.dev/components -->
 
 # 🧑‍🏫 What is Convex?
 
