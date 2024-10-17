@@ -20,12 +20,29 @@ export const setDefaultValue = migrations.define({
 });
 ```
 
+Migrations allow you to define functions that run on all documents in a table
+(or a specified subset). They run in batches asynchronously.
+
+The steps for doing a migration typically look like:
+
+1. Modify your schema to allow old and new values. Typically this is adding a
+   new optional field or marking a field as optional so it can be deleted.
+   As part of this, update your code to handle both versions.
+2. Define a migration to change the data to the new schema.
+3. Push the migration and schema changes.
+4. Run the migration(s) to completion.
+5. Modify your schema and code to assume the new value.
+   Pushing this change will only succeed if all the data matches the new schema.
+
 See [below](#usage) and [this article](https://stack.convex.dev/migrating-data-with-mutations) for more information.
 
-### Convex App
+## Pre-requisite: Convex
 
-You'll need a Convex App to use the component. Run `npm create convex` or
-follow any of the [Convex quickstarts](https://docs.convex.dev/home) to set one up.
+You'll need an existing Convex project to use the component.
+Convex is a hosted backend platform, including a database, serverless functions,
+and a ton more you can learn about [here](https://docs.convex.dev/get-started).
+
+Run `npm create convex` or follow any of the [quickstarts](https://docs.convex.dev/home) to set one up.
 
 ## Installation
 
@@ -51,7 +68,7 @@ export default app;
 ## Usage
 
 Examples below are assuming the code is in `convex/migrations.ts`.
-This is not required.
+This is not a requirement.
 
 ```ts
 import { Migrations } from "@convex-dev/migrations";
@@ -77,17 +94,17 @@ export const setDefaultValue = migrations.define({
   },
 });
 
-// Shorthand
+// Shorthand syntax
 export const clearField = migrations.define({
   table: "myTable",
   migrateOne: async (ctx, doc) => ({ optionalField: undefined }),
 });
 
+// Specify a custom range to only include documents that need to change.
+// This is useful if you have a large dataset and only a small percentage of
+// documents need to be migrated.
 export const validateRequiredField = migrations.define({
   table: "myTable",
-  // Specify a custom range to only include documents that need to change.
-  // This is useful if you have a large dataset and only a small percentage of
-  // documents need to be migrated.
   customRange: (q) =>
     q.withIndex("requiredField", (q) => q.eq("requiredField", "")),
   migrateOne: async (_ctx, doc) => {
@@ -98,7 +115,7 @@ export const validateRequiredField = migrations.define({
 });
 ```
 
-### Run it from the CLI by first defining a `run` function:
+### Run it from the Dashboard or CLI by first defining a `run` function:
 
 ```ts
 // in convex/migrations.ts for example
@@ -136,7 +153,8 @@ await migrations.runSerially(ctx, allMigrations);
 You can customize which `internalMutation` implementation the underly migration should use.
 
 This might be important if you use [custom functions](https://stack.convex.dev/custom-functions)
-to intercept database writes to apply validation or trigger operations on changes.
+to intercept database writes to apply validation or
+[trigger operations on changes](https://stack.convex.dev/triggers).
 
 Assuming you define your own `internalMutation` in `convex/functions.ts`:
 
