@@ -71,7 +71,7 @@ export class Migrations<DataModel extends GenericDataModel> {
        * import { internalMutation } from "./_generated/server.js";
        * ```
        */
-      internalMutation?: InternalMutationWrapperGeneric;
+      internalMutation?: MutationBuilder<DataModel, "internal">;
       /**
        * How many documents to process in a batch.
        * Your migrateOne function will be called for each document in a batch in
@@ -555,20 +555,3 @@ export type UseApi<API> = Expand<{
       >
     : UseApi<API[mod]>;
 }>;
-
-type RemoveCallSignature<T> = {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  [K in keyof T as T[K] extends Function ? K : never]: T[K];
-} & {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  [K in keyof T as T[K] extends Function ? never : K]: T[K];
-};
-
-// A looser type for internalMutation because Convex function wrappers
-// are not assignable across convex packages.
-export type InternalMutationWrapperGeneric = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ...args: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-) => RemoveCallSignature<RegisteredMutation<"internal", any, any>>;
-//RegisteredMutation<"internal", any, any>;
