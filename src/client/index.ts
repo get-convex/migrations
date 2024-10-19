@@ -28,39 +28,40 @@ import { api } from "../component/_generated/api.js"; // the component's public 
 
 import { ConvexError, GenericId, v } from "convex/values";
 
+// Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
 
-/**
- * Makes the migration wrapper, with types for your own tables.
- *
- * It will keep track of migration state.
- * Add in convex/migrations.ts for example:
- * ```ts
- * import { Migrations } from "@convex-dev/migrations";
- * import { components } from "./_generated/api.js";
- * import { internalMutation } from "./_generated/server";
- *
- * export const migrations = new Migrations(components.migrations, { internalMutation });
- * // the private mutation to run migrations.
- * export const run = migrations.runFromCLI();
- *
- * export const myMigration = migrations.define({
- *  table: "users",
- *  migrateOne: async (ctx, doc) => {
- *    await ctx.db.patch(doc._id, { someField: "value" });
- *  }
- * });
- * ```
- * You can then run it from the CLI or dashboard:
- * ```sh
- * npx convex run migrations:run '{"fn": "migrations:myMigration"}'
- * ```
- * For starting a migration from code, see {@link runOne}/{@link runSerially}.
- * @param component - The migrations component. It will be on components.migrations
- * after being configured in in convex.config.js.
- * @param options - Configure options and set the internalMutation to use.
- */
 export class Migrations<DataModel extends GenericDataModel> {
+  /**
+   * Makes the migration wrapper, with types for your own tables.
+   *
+   * It will keep track of migration state.
+   * Add in convex/migrations.ts for example:
+   * ```ts
+   * import { Migrations } from "@convex-dev/migrations";
+   * import { components } from "./_generated/api.js";
+   * import { internalMutation } from "./_generated/server";
+   *
+   * export const migrations = new Migrations(components.migrations, { internalMutation });
+   * // the private mutation to run migrations.
+   * export const run = migrations.runFromCLI();
+   *
+   * export const myMigration = migrations.define({
+   *  table: "users",
+   *  migrateOne: async (ctx, doc) => {
+   *    await ctx.db.patch(doc._id, { someField: "value" });
+   *  }
+   * });
+   * ```
+   * You can then run it from the CLI or dashboard:
+   * ```sh
+   * npx convex run migrations:run '{"fn": "migrations:myMigration"}'
+   * ```
+   * For starting a migration from code, see {@link runOne}/{@link runSerially}.
+   * @param component - The migrations component. It will be on components.migrations
+   * after being configured in in convex.config.js.
+   * @param options - Configure options and set the internalMutation to use.
+   */
   constructor(
     public component: UseApi<typeof api>,
     public options?: {
@@ -180,7 +181,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * Use this to wrap a mutation that will be run over all documents in a table.
    * Your mutation only needs to handle changing one document at a time,
    * passed into migrateOne.
-   * Optionally specify a custom batch size to override the default.
+   * Optionally specify a custom batch size to override the default (100).
    *
    * In convex/migrations.ts for example:
    * ```ts
@@ -348,7 +349,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    *
    * // in a mutation or action:
    *   await migrations.runOne(ctx, internal.migrations.myMigration, {
-   *     startCursor: null, // optional override
+   *     cursor: null, // optional override
    *     batchSize: 10, // optional override
    *   });
    * ```
@@ -366,7 +367,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param ctx Context from a mutation or action. Needs `runMutation`.
    * @param fnRef The migration function to run. Like `internal.migrations.foo`.
    * @param opts Options to start the migration.
-   * @param opts.startCursor The cursor to start from.
+   * @param opts.cursor The cursor to start from.
    *   null: start from the beginning.
    *   undefined: start or resume from where it failed. If done, it won't restart.
    * @param opts.batchSize The number of documents to process in a batch.
@@ -377,7 +378,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     ctx: RunMutationCtx,
     fnRef: MigrationFunctionReference,
     opts?: {
-      startCursor?: string | null;
+      cursor?: string | null;
       batchSize?: number;
       dryRun?: boolean;
     }
@@ -386,7 +387,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     await ctx.runMutation(this.component.public.runMigration, {
       name: getFunctionName(fnRef),
       fnHandle: await createFunctionHandle(fnRef),
-      cursor: opts?.startCursor,
+      cursor: opts?.cursor,
       batchSize: opts?.batchSize,
       dryRun: opts?.dryRun ?? false,
     });
