@@ -2,11 +2,7 @@ import { Migrations, MigrationStatus } from "@convex-dev/migrations";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api.js";
 import { DataModel } from "./_generated/dataModel.js";
-import {
-  DatabaseReader,
-  internalMutation,
-  internalQuery,
-} from "./_generated/server.js";
+import { internalMutation, internalQuery } from "./_generated/server.js";
 
 export const migrations = new Migrations<DataModel>(components.migrations);
 

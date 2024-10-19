@@ -204,7 +204,17 @@ should run on the next deployment.
 
 #### Using the Dashboard or CLI
 
-You can pass a list of migrations to `runner` to have it run a series of
+With the `runner` functions, you can pass a "next" argument to run
+a series of migrations after the first:
+
+```sh
+npx convex run migrations:run '{"fn": "migrations:setDefaultValue", "next":["migrations:clearField"]}'
+# OR
+npx convex run migrations:runIt '{"next":["migrations:clearField"]}'
+
+```
+
+You can also pass a list of migrations to `runner` to have it run a series of
 migrations instead of just one:
 
 ```ts
@@ -215,13 +225,11 @@ export const runAll = migrations.runner([
 ]);
 ```
 
-If the above is the default export of `convex/migrations.ts`, then you can run:
+Then just run:
 
 ```sh
-npx convex run migrations:runAll
+npx convex run migrations:runAll # --prod
 ```
-
-**Note**: pass `--prod` to run this in production.
 
 #### Programmatically
 
@@ -377,5 +385,29 @@ await migrations.runOne(ctx, internal.migrations.clearField, {
 ```
 
 #### Shorthand running syntax:
+
+For those that don't want to type out `migrations:myNewMigration` every time
+they run a migration from the CLI, especially if you define your migrations
+elsewhere like `ops/db/migrations:myNewMigration`, you can configure a prefix:
+
+```ts
+export const migrations = new Migrations(components.migrations, {
+  internalMigration,
+  migrationsLocationPrefix: "migrations:",
+});
+```
+
+And then just call:
+
+```sh
+npx convex run migrations:run '{"fn": "myNewMutation", "next": ["myNextMutation"]}'
+```
+
+Or in code:
+
+```ts
+await migrations.getStatus(ctx, { migrations: ["myNewMutation"] });
+await migrations.cancel(ctx, "myNewMutation");
+```
 
 <!-- END: Include on https://convex.dev/components -->
