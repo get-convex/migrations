@@ -44,7 +44,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    *
    * export const migrations = new Migrations(components.migrations, { internalMutation });
    * // the private mutation to run migrations.
-   * export const run = migrations.runFromCLI();
+   * export const run = migrations.runner();
    *
    * export const myMigration = migrations.define({
    *  table: "users",
@@ -99,13 +99,13 @@ export class Migrations<DataModel extends GenericDataModel> {
    *
    * It can be created for a specific migration:
    * ```ts
-   * export const runMyMigration = runFromCLI(internal.migrations.myMigration);
+   * export const runMyMigration = runner(internal.migrations.myMigration);
    * ```
    * CLI: `npx convex run migrations:runMyMigration`
    *
    * Or for any migration:
    * ```ts
-   * export const run = runFromCLI();
+   * export const run = runner();
    * ```
    * CLI: `npx convex run migrations:run '{"fn": "migrations:myMigration"}'`
    *
@@ -117,7 +117,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * Otherwise it will be a generic runner that requires the migration name.
    * @returns An internal mutation,
    */
-  runFromCLI(
+  runner(
     specificMigrationOrSeries?:
       | MigrationFunctionReference
       | MigrationFunctionReference[]
@@ -159,8 +159,8 @@ export class Migrations<DataModel extends GenericDataModel> {
         if (!args.fn && !specificMigration) {
           throw new Error(
             `Specify the migration: '{"fn": "migrations:foo"}'\n` +
-              "Or initialize a `runFromCLI` runner specific to the migration like\n" +
-              "`export const runMyMigration = runFromCLI(internal.migrations.myMigration)`"
+              "Or initialize a `runner` runner specific to the migration like\n" +
+              "`export const runMyMigration = runner(internal.migrations.myMigration)`"
           );
         }
         const name = args.fn

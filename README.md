@@ -88,7 +88,7 @@ import { components } from "./_generated/api.js";
 import { DataModel } from "./_generated/dataModel.js";
 
 export const migrations = new Migrations<DataModel>(components.migrations);
-export const run = migrations.runFromCLI();
+export const run = migrations.runner();
 ```
 
 The type parameter `DataModel` is optional. It provides type safety for migration definitions.
@@ -153,7 +153,7 @@ You can expose a general-purpose function to run your migrations.
 For example, in `convex/migrations.ts` add:
 
 ```ts
-export const run = migrations.runFromCLI();
+export const run = migrations.runner();
 ```
 
 Then run it:
@@ -165,7 +165,7 @@ npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'
 To define a one-off function to run a single migration, pass a reference to it:
 
 ```ts
-export const runIt = migrations.runFromCLI(internal.migrations.setDefaultValue);
+export const runIt = migrations.runner(internal.migrations.setDefaultValue);
 ```
 
 And run it:
@@ -204,11 +204,11 @@ should run on the next deployment.
 
 #### Using the Dashboard or CLI
 
-You can pass a list of migrations to `runFromCLI` to have it run a series of
+You can pass a list of migrations to `runner` to have it run a series of
 migrations instead of just one:
 
 ```ts
-export const runAll = migrations.runFromCLI([
+export const runAll = migrations.runner([
   internal.migrations.setDefaultValue,
   internal.migrations.validateRequiredField,
   internal.migrations.convertUnionField,

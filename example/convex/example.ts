@@ -11,10 +11,10 @@ import {
 export const migrations = new Migrations<DataModel>(components.migrations);
 
 // Allows you to run `npx convex run example:run '{"fn":"example:setDefaultValue"}'`
-export const run = migrations.runFromCLI();
+export const run = migrations.runner();
 
 // This allows you to just run `npx convex run example:runIt`
-export const runIt = migrations.runFromCLI(internal.example.setDefaultValue);
+export const runIt = migrations.runner(internal.example.setDefaultValue);
 
 export const setDefaultValue = migrations.define({
   table: "myTable",
@@ -84,7 +84,7 @@ const allMigrations = [
   internal.example.failingMigration,
 ];
 
-export const runAll = migrations.runFromCLI(allMigrations);
+export const runAll = migrations.runner(allMigrations);
 
 // Call this from a deploy script to run them after pushing code.
 export const postDeploy = internalMutation({
