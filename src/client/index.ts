@@ -117,7 +117,11 @@ export class Migrations<DataModel extends GenericDataModel> {
    * Otherwise it will be a generic runner that requires the migration name.
    * @returns An internal mutation,
    */
-  runFromCLI(specificMigration?: MigrationFunctionReference) {
+  runFromCLI(
+    specificMigrationOrSeries?:
+      | MigrationFunctionReference
+      | MigrationFunctionReference[]
+  ) {
     return internalMutationGeneric({
       args: {
         fn: v.optional(v.string()),
@@ -127,6 +131,27 @@ export class Migrations<DataModel extends GenericDataModel> {
         next: v.optional(v.array(v.string())),
       },
       handler: async (ctx, args) => {
+        let specificMigration =
+          specificMigrationOrSeries as MigrationFunctionReference;
+        let next =
+          args.next &&
+          (await Promise.all(
+            args.next.map(async (nextFn) => ({
+              name: this.prefixedName(nextFn),
+              fnHandle: await makeFn(this.prefixedName(nextFn)),
+            }))
+          ));
+        if (Array.isArray(specificMigrationOrSeries)) {
+          specificMigration = specificMigrationOrSeries[0];
+          next = (
+            await Promise.all(
+              specificMigrationOrSeries.slice(1).map(async (fnRef) => ({
+                name: getFunctionName(fnRef),
+                fnHandle: await createFunctionHandle(fnRef),
+              }))
+            )
+          ).concat(next ?? []);
+        }
         // Future: Call it so that it can return the id: ctx.runMutation?
         if (args.fn && specificMigration) {
           throw new Error("Specify only one of fn or specificMigration");
@@ -135,7 +160,7 @@ export class Migrations<DataModel extends GenericDataModel> {
           throw new Error(
             `Specify the migration: '{"fn": "migrations:foo"}'\n` +
               "Or initialize a `runFromCLI` runner specific to the migration like\n" +
-              "`export const runMyMigratio = runFromCLI(internal.migrations.myMigration)`"
+              "`export const runMyMigration = runFromCLI(internal.migrations.myMigration)`"
           );
         }
         const name = args.fn
@@ -157,14 +182,6 @@ export class Migrations<DataModel extends GenericDataModel> {
         const fnHandle = args.fn
           ? await makeFn(name)
           : await createFunctionHandle(specificMigration!);
-        const next =
-          args.next &&
-          (await Promise.all(
-            args.next.map(async (nextFn) => ({
-              name: this.prefixedName(nextFn),
-              fnHandle: await makeFn(this.prefixedName(nextFn)),
-            }))
-          ));
         return ctx.runMutation(this.component.public.runMigration, {
           name,
           fnHandle,

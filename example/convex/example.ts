@@ -84,10 +84,13 @@ const allMigrations = [
   internal.example.failingMigration,
 ];
 
+export const runAll = migrations.runFromCLI(allMigrations);
+
 // Call this from a deploy script to run them after pushing code.
-export const runAll = internalMutation({
+export const postDeploy = internalMutation({
   args: {},
   handler: async (ctx) => {
+    // Do other post-deploy things...
     await migrations.runSerially(ctx, allMigrations);
   },
 });
@@ -99,6 +102,17 @@ export const getStatus = internalQuery({
     return migrations.getStatus(ctx, {
       migrations: allMigrations,
     });
+  },
+});
+
+export const cancel = internalMutation({
+  args: { name: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    if (args.name) {
+      await migrations.cancel(ctx, args.name);
+    } else {
+      await migrations.cancelAll(ctx);
+    }
   },
 });
 
