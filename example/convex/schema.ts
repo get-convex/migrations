@@ -7,5 +7,5 @@ export default defineSchema({
     requiredField: v.string(),
     optionalField: v.optional(v.string()),
     unionField: v.union(v.string(), v.number()),
-  }).index("requiredField", ["requiredField"]),
+  }).index("by_requiredField", ["requiredField"]),
 });

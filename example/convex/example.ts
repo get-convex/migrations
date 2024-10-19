@@ -2,7 +2,11 @@ import { Migrations, MigrationStatus } from "@convex-dev/migrations";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api.js";
 import { DataModel } from "./_generated/dataModel.js";
-import { internalMutation, internalQuery } from "./_generated/server.js";
+import {
+  DatabaseReader,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server.js";
 
 export const migrations = new Migrations<DataModel>(components.migrations);
 
@@ -24,11 +28,7 @@ export const setDefaultValue = migrations.define({
 
 export const clearField = migrations.define({
   table: "myTable",
-  migrateOne: async (ctx, doc) => {
-    if (doc.optionalField !== undefined) {
-      await ctx.db.patch(doc._id, { optionalField: undefined });
-    }
-  },
+  migrateOne: () => ({ optionalField: undefined }),
 });
 
 export const validateRequiredField = migrations.define({
@@ -36,12 +36,12 @@ export const validateRequiredField = migrations.define({
   // Specify a custom range to only include documents that need to change.
   // This is useful if you have a large dataset and only a small percentage of
   // documents need to be migrated.
-  customRange: (q) =>
-    q.withIndex("requiredField", (q) => q.eq("requiredField", "")),
+  customRange: (query) =>
+    query.withIndex("by_requiredField", (q) => q.eq("requiredField", "")),
   migrateOne: async (_ctx, doc) => {
     console.log("Needs fixup: " + doc._id);
     // Shorthand for patching
-    return { requiredField: "<empty>" };
+    return { requiredField: "<unknown>" };
   },
 });
 
@@ -64,6 +64,15 @@ export const failingMigration = migrations.define({
     if (doc._id !== (await ctx.db.query("myTable").first())?._id) {
       throw new Error("This migration fails after the first");
     }
+  },
+});
+
+export const runOneAtATime = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await migrations.runOne(ctx, internal.example.failingMigration, {
+      batchSize: 1,
+    });
   },
 });
 
