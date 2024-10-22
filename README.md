@@ -193,7 +193,7 @@ await migrations.runOne(ctx, internal.example.setDefaultValue);
   it will start from there.
 - If you pass `true` for `dryRun` then it will run one batch and then throw,
   so no changes are committed, and you can see what it would have done.
-  See [below](#test-a-migration-before-running-it-to-completion-from-the-cli)
+  See [below](#test-a-migration-with-dryrun)
   This is good for validating it does what you expect.
 
 ## Running migrations serially
