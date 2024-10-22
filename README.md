@@ -77,7 +77,7 @@ app.use(migrations);
 export default app;
 ```
 
-## Usage
+## Initialization
 
 Examples below are assuming the code is in `convex/migrations.ts`.
 This is not a requirement.
@@ -96,7 +96,7 @@ As always, database operations in migrations will abide by your schema definitio
 **Note**: if you use [custom functions](https://stack.convex.dev/custom-functions)
 to override `internalMutation`, see [below](#override-the-internalmutation-to-apply-custom-db-behavior).
 
-### Define migrations
+## Define migrations
 
 Within the `migrateOne` function, you can write code to modify a single document
 in the specified table. Making changes is optional, and you can also read and
@@ -113,7 +113,7 @@ export const setDefaultValue = migrations.define({
 });
 ```
 
-#### Shorthand syntax
+### Shorthand syntax
 
 Since the most common migration involves patching each document,
 if you return an object, it will be applied as a patch automatically.
@@ -126,7 +126,7 @@ export const clearField = migrations.define({
 // is equivalent to `await ctx.db.patch(doc._id, { optionalField: undefined })`
 ```
 
-#### Migrating a subset of a table using an index
+### Migrating a subset of a table using an index
 
 If you only want to migrate a range of documents, you can avoid processing the
 whole table by specifying a `customRange`. You can use any existing index you
@@ -145,9 +145,9 @@ export const validateRequiredField = migrations.define({
 });
 ```
 
-### Running migrations one at a time
+## Running migrations one at a time
 
-#### Using the Dashboard or CLI
+### Using the Dashboard or CLI
 
 You can expose a general-purpose function to run your migrations.
 For example, in `convex/migrations.ts` add:
@@ -176,7 +176,7 @@ npx convex run migrations:runIt
 
 **Note**: pass `--prod` to run these commands in production.
 
-#### Programmatically
+### Programmatically
 
 You can also run migrations from other Convex mutations or actions:
 
@@ -184,7 +184,7 @@ You can also run migrations from other Convex mutations or actions:
 await migrations.runOne(ctx, internal.example.setDefaultValue);
 ```
 
-#### Behavior
+### Behavior
 
 - If it is already running it will refuse to start another duplicate worker.
 - If it had previously failed on some batch, it will continue from that batch
@@ -196,13 +196,13 @@ await migrations.runOne(ctx, internal.example.setDefaultValue);
   See [below](#test-a-migration-before-running-it-to-completion-from-the-cli)
   This is good for validating it does what you expect.
 
-### Running migrations serially
+## Running migrations serially
 
 You can run a series of migrations in order. This is useful if some migrations
 depend on previous ones, or if you keep a running list of all migrations that
 should run on the next deployment.
 
-#### Using the Dashboard or CLI
+### Using the Dashboard or CLI
 
 With the `runner` functions, you can pass a "next" argument to run
 a series of migrations after the first:
@@ -231,7 +231,7 @@ Then just run:
 npx convex run migrations:runAll # --prod
 ```
 
-#### Programmatically
+### Programmatically
 
 ```ts
 await migrations.runSerially(ctx, [
@@ -241,7 +241,7 @@ await migrations.runSerially(ctx, [
 ]);
 ```
 
-#### Behavior
+### Behavior
 
 - If a migration is already in progress when attempted, it will no-op.
 - If a migration had already completed, it will skip it.
@@ -258,9 +258,9 @@ Note: if you start multiple serial migrations, the behavior is:
 - If they have a function in common and one is in progress, the second will
   no-op and not run any further migrations in its series.
 
-### Operations
+## Operations
 
-#### Test a migration with dryRun
+### Test a migration with dryRun
 
 Before running a migration that may irreversibly change data, you can validate
 a batch by passing `dryRun` to the CLI or `runOne` command:
@@ -269,7 +269,7 @@ a batch by passing `dryRun` to the CLI or `runOne` command:
 npx convex run migrations:run '{"dryRun": true, "fn": "migrations:myMigration"}' # --prod
 ```
 
-#### Restart a migration
+### Restart a migration
 
 Pass `null` for the `cursor` to force a migration to start over.
 
@@ -281,7 +281,7 @@ You can also pass in any valid cursor to start from. You can find valid cursors
 in the response of calls to `getStatus`. This can allow retrying a migration
 from a known good point as you iterate on the code.
 
-#### Stop a migration
+### Stop a migration
 
 You can stop a migration from the CLI, calling the component API directly:
 
@@ -295,9 +295,9 @@ Or via `migrations.cancel` programatically.
 await migrations.cancel(ctx, internal.migrations.myMigration);
 ```
 
-#### Get the status of migrations
+### Get the status of migrations
 
-To see the status of migrations has progressed, you can query it via the CLI:
+To see the live status of migrations as they progress, you can query it via the CLI:
 
 ```sh
 npx convex run --component migrations public:getStatus --watch # --prod
@@ -324,7 +324,7 @@ The type is annotated to avoid circular type dependencies, for instance if you
 are returning the result from a query that is defined in the same file as the
 referenced migrations.
 
-#### Running migrations as part of a production deploy
+### Running migrations as part of a production deploy
 
 As part of your build and deploy command, you can chain the corresponding
 `npx convex run` command, such as:
@@ -333,9 +333,9 @@ As part of your build and deploy command, you can chain the corresponding
 npx convex deploy --cmd 'npm run build' && npx convex run migrations:runAll --prod
 ```
 
-### Configuration options
+## Configuration options
 
-#### Override the internalMutation to apply custom DB behavior
+### Override the internalMutation to apply custom DB behavior
 
 You can customize which `internalMutation` implementation the underly migration should use.
 
@@ -358,7 +358,7 @@ export const migrations = new Migrations(components.migrations, {
 See [this article](https://stack.convex.dev/migrating-data-with-mutations)
 for more information on usage and advanced patterns.
 
-#### Custom batch size
+### Custom batch size
 
 The component will fetch your data in batches of 100, and call your function on
 each document in a batch.
@@ -384,7 +384,7 @@ await migrations.runOne(ctx, internal.migrations.clearField, {
 });
 ```
 
-#### Shorthand running syntax:
+### Shorthand running syntax:
 
 For those that don't want to type out `migrations:myNewMigration` every time
 they run a migration from the CLI, especially if you define your migrations
