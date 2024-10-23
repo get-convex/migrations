@@ -425,7 +425,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       dryRun?: boolean;
     }
   ) {
-    return ctx.runMutation(this.component.public.runMigration, {
+    return ctx.runMutation(this.component.public.migrate, {
       name: getFunctionName(fnRef),
       fnHandle: await createFunctionHandle(fnRef),
       cursor: opts?.cursor,
@@ -478,7 +478,7 @@ export class Migrations<DataModel extends GenericDataModel> {
         fnHandle: await createFunctionHandle(fnRef),
       }))
     );
-    return ctx.runMutation(this.component.public.runMigration, {
+    return ctx.runMutation(this.component.public.migrate, {
       name: getFunctionName(fnRef),
       fnHandle: await createFunctionHandle(fnRef),
       next,

@@ -81,7 +81,7 @@ export type Mounts = {
         state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
       }>
     >;
-    runMigration: FunctionReference<
+    migrate: FunctionReference<
       "mutation",
       "public",
       {

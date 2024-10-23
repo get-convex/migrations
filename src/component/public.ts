@@ -33,7 +33,7 @@ const runMigrationArgs = {
   dryRun: v.boolean(),
 };
 
-export const runMigration = mutation({
+export const migrate = mutation({
   args: runMigrationArgs,
   returns: migrationStatus,
   handler: async (ctx, args) => {
@@ -106,14 +106,10 @@ export const runMigration = mutation({
       // Step 3: Schedule the next batch or next migration.
       if (!state.isDone) {
         // Recursively schedule the next batch.
-        state.workerId = await ctx.scheduler.runAfter(
-          0,
-          api.public.runMigration,
-          {
-            ...args,
-            cursor: state.cursor,
-          }
-        );
+        state.workerId = await ctx.scheduler.runAfter(0, api.public.migrate, {
+          ...args,
+          cursor: state.cursor,
+        });
       } else {
         state.workerId = undefined;
         // Schedule the next migration in the series.
@@ -128,7 +124,7 @@ export const runMigration = mutation({
           if (!doc || !doc.isDone) {
             const [nextFn, ...rest] = next.slice(i);
             if (nextFn) {
-              await ctx.scheduler.runAfter(0, api.public.runMigration, {
+              await ctx.scheduler.runAfter(0, api.public.migrate, {
                 name: nextFn.name,
                 fnHandle: nextFn.fnHandle,
                 next: rest,

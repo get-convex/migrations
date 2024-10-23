@@ -93,7 +93,7 @@ export declare const components: {
           state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
         }>
       >;
-      runMigration: FunctionReference<
+      migrate: FunctionReference<
         "mutation",
         "internal",
         {
