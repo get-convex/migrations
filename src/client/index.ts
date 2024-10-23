@@ -152,7 +152,6 @@ export class Migrations<DataModel extends GenericDataModel> {
             )
           ).concat(next ?? []);
         }
-        // Future: Call it so that it can return the id: ctx.runMutation?
         if (args.fn && specificMigration) {
           throw new Error("Specify only one of fn or specificMigration");
         }
@@ -182,14 +181,29 @@ export class Migrations<DataModel extends GenericDataModel> {
         const fnHandle = args.fn
           ? await makeFn(name)
           : await createFunctionHandle(specificMigration!);
-        return ctx.runMutation(this.component.public.runMigration, {
-          name,
-          fnHandle,
-          cursor: args.cursor,
-          batchSize: args.batchSize,
-          next,
-          dryRun: args.dryRun ?? false,
-        });
+        let status: MigrationStatus;
+        try {
+          status = await ctx.runMutation(this.component.public.runMigration, {
+            name,
+            fnHandle,
+            cursor: args.cursor,
+            batchSize: args.batchSize,
+            next,
+            dryRun: args.dryRun ?? false,
+          });
+        } catch (e) {
+          if (
+            args.dryRun &&
+            e instanceof ConvexError &&
+            e.data.kind === "DRY RUN"
+          ) {
+            status = e.data.status;
+          } else {
+            throw e;
+          }
+        }
+
+        logStatusAndInstructions(name, status, args.dryRun);
       },
     });
   }
@@ -280,7 +294,7 @@ export class Migrations<DataModel extends GenericDataModel> {
             `Batch size is zero. Using the default: ${numItems}\n` +
               "Running this from the dashboard? Here's some args to use:\n" +
               `Dry run: { dryRun: true, cursor: null }\n` +
-              'For real: run `migrations:run` with { fn: "migrations:yourFnName" }'
+              'For real: run `migrations:run` with { "fn": "migrations:yourFnName" }'
           );
         }
         if (
@@ -572,3 +586,63 @@ export type UseApi<API> = Expand<{
       >
     : UseApi<API[mod]>;
 }>;
+
+function logStatusAndInstructions(
+  name: string,
+  status: MigrationStatus,
+  dryRun: boolean = false
+) {
+  const dry = dryRun ? "DRY RUN: " : "";
+  const log = function (s: string) {
+    console.log(dry + s);
+  };
+  if (status.isDone) {
+    if (status.latestEnd !== Date.now()) {
+      log("Migration already done.");
+    } else if (status.latestStart === status.latestEnd) {
+      log("Migration was started and finished in one batch.");
+    } else {
+      log("Migration completed with this batch.");
+    }
+  } else {
+    if (status.latestStart === Date.now()) {
+      log("Migration started.");
+    } else {
+      log("Migration already underway.");
+    }
+  }
+  log(`Name: ${name}`);
+  log(`Started: ${new Date(status.latestStart).toISOString()}`);
+  if (status.latestEnd) {
+    log(`Finished: ${new Date(status.latestEnd).toISOString()}`);
+  }
+  log(`Processed: ${status.processed}`);
+  if (status.next?.length) {
+    if (status.isDone) {
+      log(`It will now attempt:`);
+    } else {
+      log(`After it finishes, it will run:`);
+    }
+    log(`- ${status.next.join("\n- ")}`);
+  }
+  log("");
+  const nextArgs = (status.next || []).map((n) => `"${n}"`).join(", ");
+  const run = `npx convex run --component migrations`;
+  if (status.isDone) {
+    log("To start over, use these arguments:");
+    log(`  '{"fn": "${name}", "cursor": null}'`);
+    if (status.next?.length) {
+      log("");
+      log(`To monitor progress of the next migrations:`);
+      log(`  ${run} public:status '{"migrations": [${nextArgs}]}' # --prod`);
+    }
+  } else {
+    log("To cancel:");
+    log(`  ${run} public:cancel '{"name": "${name}"}' # --prod`);
+    log("");
+    log("To monitor progress:");
+    log(
+      `  ${run} public:status '{"migrations": ["${name}"${status.next?.length ? ", " + nextArgs : ""}]}' # --prod`
+    );
+  }
+}

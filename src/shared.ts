@@ -19,6 +19,7 @@ export const migrationStatus = v.object({
   cursor: v.optional(v.union(v.string(), v.null())),
   processed: v.number(),
   isDone: v.boolean(),
+  error: v.optional(v.string()),
   workerStatus: v.optional(
     v.union(
       v.literal("pending"),
@@ -28,7 +29,8 @@ export const migrationStatus = v.object({
       v.literal("canceled")
     )
   ),
-  latestStart: v.optional(v.number()),
+  latestStart: v.number(),
+  latestEnd: v.optional(v.number()),
   batchSize: v.optional(v.number()),
   next: v.optional(v.array(v.string())),
 });

@@ -7,6 +7,7 @@ export default defineSchema({
     cursor: v.union(v.string(), v.null()),
     isDone: v.boolean(),
     workerId: v.optional(v.id("_scheduled_functions")),
+    error: v.optional(v.string()),
     // The number of documents processed so far.
     processed: v.number(),
     latestStart: v.number(),

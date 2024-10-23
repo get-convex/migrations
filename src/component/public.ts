@@ -1,6 +1,6 @@
 import { ConvexError, ObjectType, v } from "convex/values";
 import { mutation, MutationCtx, query, QueryCtx } from "./_generated/server.js";
-import { FunctionHandle } from "convex/server";
+import { FunctionHandle, WithoutSystemFields } from "convex/server";
 import {
   MigrationArgs,
   MigrationResult,
@@ -80,8 +80,17 @@ export const runMigration = mutation({
       // For Case 1, Step 2 will take the right action.
     }
 
-    // Step 2: Run the migration.
+    function updateState(result: MigrationResult) {
+      state.cursor = result.continueCursor;
+      state.isDone = result.isDone;
+      state.processed += result.processed;
+      if (result.isDone) {
+        state.latestEnd = Date.now();
+      }
+    }
+
     try {
+      // Step 2: Run the migration.
       const result = await ctx.runMutation(
         fnHandle as MigrationFunctionHandle,
         {
@@ -90,25 +99,8 @@ export const runMigration = mutation({
           dryRun,
         }
       );
-      state.cursor = result.continueCursor;
-      state.isDone = result.isDone;
-      state.processed += result.processed;
-      if (result.isDone) {
-        state.latestEnd = Date.now();
-        state.workerId = undefined;
-      }
-    } catch (e) {
-      if (
-        args.dryRun &&
-        e instanceof ConvexError &&
-        e.data.kind === "DRY RUN"
-      ) {
-        console.debug("Dry run: continuing");
-      } else {
-        // TODO: Capture the error in the table as a status
-        throw e;
-      }
-    }
+      updateState(result);
+      state.error = undefined;
 
     // Step 3: Schedule the next batch or next migration.
     if (!state.isDone) {
@@ -122,6 +114,7 @@ export const runMigration = mutation({
         }
       );
     } else {
+      state.workerId = undefined;
       // Schedule the next migration in the series.
       const next = next_ ?? [];
       // Find the next migration that hasn't been done.
@@ -156,6 +149,23 @@ export const runMigration = mutation({
         );
       }
     }
+    } catch (e) {
+      if (dryRun && e instanceof ConvexError && e.data.kind === "DRY RUN") {
+        // Add the state to the error to bubble up.
+        updateState(e.data.result);
+      } else {
+        state.error = e instanceof Error ? e.message : String(e);
+      }
+      if (dryRun) {
+        const status = await getMigrationState(ctx, state);
+        status.batchSize = batchSize;
+        status.next = next_?.map((n) => n.name);
+        throw new ConvexError({
+          kind: "DRY RUN",
+          status,
+        });
+      }
+    }
 
     // Step 4: Update the state
     await ctx.db.patch(state._id, state);
@@ -163,7 +173,9 @@ export const runMigration = mutation({
       // By throwing an error, the transaction will be rolled back and nothing
       // will be scheduled.
       console.debug({ args, state });
-      throw new Error("Dry run - rolling back transaction.");
+      throw new Error(
+        "Error: Dry run attempted to update state - rolling back transaction."
+      );
     }
     return getMigrationState(ctx, state);
   },
@@ -186,7 +198,8 @@ export const getStatus = query({
                 .unique()) ?? {
                 name: m,
                 processed: 0,
-                cursor: undefined,
+                cursor: null,
+                latestStart: 0,
                 workerId: undefined,
                 isDone: false as const,
               }
@@ -205,25 +218,21 @@ export const getStatus = query({
 
 async function getMigrationState(
   ctx: QueryCtx,
-  migration: Omit<
-    Doc<"migrations">,
-    "_id" | "_creationTime" | "latestStart" | "cursor"
-  > & {
-    cursor?: string | null;
-    latestStart?: number;
-  }
+  migration: WithoutSystemFields<Doc<"migrations">>
 ): Promise<MigrationStatus> {
-  const { name, cursor, processed, isDone, latestStart, workerId } = migration;
-  const worker = workerId && (await ctx.db.system.get(workerId));
+  const worker =
+    migration.workerId && (await ctx.db.system.get(migration.workerId));
   const args = worker?.args[0] as
     | ObjectType<typeof runMigrationArgs>
     | undefined;
   return {
-    name,
-    cursor,
-    processed,
-    isDone,
-    latestStart,
+    name: migration.name,
+    cursor: migration.cursor,
+    processed: migration.processed,
+    isDone: migration.isDone,
+    latestStart: migration.latestStart,
+    latestEnd: migration.latestEnd,
+    error: migration.error,
     workerStatus: worker?.state.kind,
     batchSize: args?.batchSize,
     next: args?.next?.map((n: { name: string }) => n.name),
