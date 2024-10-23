@@ -75,6 +75,7 @@ export const runMigration = mutation({
         state.cursor = args.cursor;
         state.isDone = false;
         state.latestStart = Date.now();
+        state.latestEnd = undefined;
         state.processed = 0;
       }
       // For Case 1, Step 2 will take the right action.
@@ -155,6 +156,7 @@ export const runMigration = mutation({
         updateState(e.data.result);
       } else {
         state.error = e instanceof Error ? e.message : String(e);
+        console.error(`Migration ${args.name} failed: ${state.error}`);
       }
       if (dryRun) {
         const status = await getMigrationState(ctx, state);
@@ -183,14 +185,14 @@ export const runMigration = mutation({
 
 export const getStatus = query({
   args: {
-    migrationNames: v.optional(v.array(v.string())),
+    names: v.optional(v.array(v.string())),
     limit: v.optional(v.number()),
   },
   returns: v.array(migrationStatus),
   handler: async (ctx, args) => {
-    const docs = args.migrationNames
+    const docs = args.names
       ? await Promise.all(
-          args.migrationNames.map(
+          args.names.map(
             async (m) =>
               (await ctx.db
                 .query("migrations")

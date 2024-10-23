@@ -492,11 +492,11 @@ export class Migrations<DataModel extends GenericDataModel> {
       limit?: number;
     }
   ): Promise<MigrationStatus[]> {
-    const migrationNames = migrations?.map((m) =>
+    const names = migrations?.map((m) =>
       typeof m === "string" ? this.prefixedName(m) : getFunctionName(m)
     );
     return ctx.runQuery(this.component.public.getStatus, {
-      migrationNames,
+      names,
       limit,
     });
   }

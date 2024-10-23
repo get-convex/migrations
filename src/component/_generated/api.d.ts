@@ -37,8 +37,10 @@ export type Mounts = {
       {
         batchSize?: number;
         cursor?: string | null;
+        error?: string;
         isDone: boolean;
-        latestStart?: number;
+        latestEnd?: number;
+        latestStart: number;
         name: string;
         next?: Array<string>;
         processed: number;
@@ -57,8 +59,10 @@ export type Mounts = {
       Array<{
         batchSize?: number;
         cursor?: string | null;
+        error?: string;
         isDone: boolean;
-        latestStart?: number;
+        latestEnd?: number;
+        latestStart: number;
         name: string;
         next?: Array<string>;
         processed: number;
@@ -73,12 +77,14 @@ export type Mounts = {
     getStatus: FunctionReference<
       "query",
       "public",
-      { limit?: number; migrationNames?: Array<string> },
+      { limit?: number; names?: Array<string> },
       Array<{
         batchSize?: number;
         cursor?: string | null;
+        error?: string;
         isDone: boolean;
-        latestStart?: number;
+        latestEnd?: number;
+        latestStart: number;
         name: string;
         next?: Array<string>;
         processed: number;
@@ -104,8 +110,10 @@ export type Mounts = {
       {
         batchSize?: number;
         cursor?: string | null;
+        error?: string;
         isDone: boolean;
-        latestStart?: number;
+        latestEnd?: number;
+        latestStart: number;
         name: string;
         next?: Array<string>;
         processed: number;
