@@ -345,13 +345,24 @@ export class Migrations<DataModel extends GenericDataModel> {
         };
         if (args.dryRun) {
           // Throwing an error rolls back the transaction
-          console.debug({
-            before: page[0],
-            after:
-              page[0] &&
-              (await ctx.db.get(page[0]!._id as GenericId<TableName>)),
-            result,
-          });
+          let anyChanges = false;
+          for (const before of page) {
+            const after = await ctx.db.get(before._id as GenericId<TableName>);
+            if (JSON.stringify(after) !== JSON.stringify(before)) {
+              console.debug("DRY RUN: Example change", {
+                before,
+                after,
+              });
+              anyChanges = true;
+              break;
+            }
+          }
+          if (!anyChanges) {
+            console.debug(
+              "DRY RUN: No changes were found in the first page. " +
+                `Try {"dryRun": true, "cursor": "${continueCursor}"}`
+            );
+          }
           throw new ConvexError({
             kind: "DRY RUN",
             result,
