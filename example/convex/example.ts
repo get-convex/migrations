@@ -124,3 +124,14 @@ export const seed = internalMutation({
     }
   },
 });
+
+// Alternatively, you can specify a prefix.
+export const migrationsWithPrefix = new Migrations(components.migrations, {
+  // Specifying the internalMutation means you don't need the type parameter.
+  // Also, if you have a custom internalMutation, you can specify it here.
+  internalMutation,
+  migrationsLocationPrefix: "example:",
+});
+
+// Allows you to run `npx convex run example:runWithPrefix '{"fn":"setDefaultValue"}'`
+export const runWithPrefix = migrationsWithPrefix.runner();
