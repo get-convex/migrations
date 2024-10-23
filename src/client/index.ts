@@ -158,56 +158,56 @@ export class Migrations<DataModel extends GenericDataModel> {
     fnRef?: MigrationFunctionReference,
     next?: { name: string; fnHandle: string }[]
   ) {
-        const name = args.fn ? this.prefixedName(args.fn) : getFunctionName(fnRef!);
-        async function makeFn(fn: string) {
-          try {
-            return await createFunctionHandle(
-              makeFunctionReference<"mutation">(fn)
-            );
-          } catch {
-            throw new Error(
-              `Can't find function ${fn}\n` +
-                "The name should match the folder/file:method\n" +
-                "See https://docs.convex.dev/functions/query-functions#query-names"
-            );
-          }
-        }
-        const fnHandle = args.fn
-          ? await makeFn(name)
-          : await createFunctionHandle(fnRef!);
-        if (args.next) {
-          next = (next ?? []).concat(
-            await Promise.all(
-              args.next.map(async (nextFn) => ({
-                name: this.prefixedName(nextFn),
-                fnHandle: await makeFn(this.prefixedName(nextFn)),
-              }))
-            )
-          );
-        }
-        let status: MigrationStatus;
-        try {
-          status = await ctx.runMutation(this.component.public.runMigration, {
-            name,
-            fnHandle,
-            cursor: args.cursor,
-            batchSize: args.batchSize,
-            next,
-            dryRun: args.dryRun ?? false,
-          });
-        } catch (e) {
-          if (
-            args.dryRun &&
-            e instanceof ConvexError &&
-            e.data.kind === "DRY RUN"
-          ) {
-            status = e.data.status;
-          } else {
-            throw e;
-          }
-        }
+    const name = args.fn ? this.prefixedName(args.fn) : getFunctionName(fnRef!);
+    async function makeFn(fn: string) {
+      try {
+        return await createFunctionHandle(
+          makeFunctionReference<"mutation">(fn)
+        );
+      } catch {
+        throw new Error(
+          `Can't find function ${fn}\n` +
+            "The name should match the folder/file:method\n" +
+            "See https://docs.convex.dev/functions/query-functions#query-names"
+        );
+      }
+    }
+    const fnHandle = args.fn
+      ? await makeFn(name)
+      : await createFunctionHandle(fnRef!);
+    if (args.next) {
+      next = (next ?? []).concat(
+        await Promise.all(
+          args.next.map(async (nextFn) => ({
+            name: this.prefixedName(nextFn),
+            fnHandle: await makeFn(this.prefixedName(nextFn)),
+          }))
+        )
+      );
+    }
+    let status: MigrationStatus;
+    try {
+      status = await ctx.runMutation(this.component.public.migrate, {
+        name,
+        fnHandle,
+        cursor: args.cursor,
+        batchSize: args.batchSize,
+        next,
+        dryRun: args.dryRun ?? false,
+      });
+    } catch (e) {
+      if (
+        args.dryRun &&
+        e instanceof ConvexError &&
+        e.data.kind === "DRY RUN"
+      ) {
+        status = e.data.status;
+      } else {
+        throw e;
+      }
+    }
 
-        return logStatusAndInstructions(name, status, args);
+    return logStatusAndInstructions(name, status, args);
   }
 
   /**
