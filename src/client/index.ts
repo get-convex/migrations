@@ -19,14 +19,13 @@ import {
 import {
   MigrationArgs,
   migrationArgs,
-  migrationResult,
   MigrationResult,
   MigrationStatus,
 } from "../shared.js";
 export type { MigrationArgs, MigrationResult, MigrationStatus };
 import { api } from "../component/_generated/api.js"; // the component's public api
 
-import { ConvexError, GenericId, v } from "convex/values";
+import { ConvexError, GenericId } from "convex/values";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
@@ -123,35 +122,21 @@ export class Migrations<DataModel extends GenericDataModel> {
       | MigrationFunctionReference[]
   ) {
     return internalMutationGeneric({
-      args: {
-        fn: v.optional(v.string()),
-        cursor: v.optional(v.union(v.string(), v.null())),
-        batchSize: v.optional(v.number()),
-        dryRun: v.optional(v.boolean()),
-        next: v.optional(v.array(v.string())),
-      },
+      args: migrationArgs,
       handler: async (ctx, args) => {
-        let specificMigration =
-          specificMigrationOrSeries as MigrationFunctionReference;
-        let next =
-          args.next &&
-          (await Promise.all(
-            args.next.map(async (nextFn) => ({
-              name: this.prefixedName(nextFn),
-              fnHandle: await makeFn(this.prefixedName(nextFn)),
-            }))
-          ));
-        if (Array.isArray(specificMigrationOrSeries)) {
-          specificMigration = specificMigrationOrSeries[0];
-          next = (
-            await Promise.all(
-              specificMigrationOrSeries.slice(1).map(async (fnRef) => ({
-                name: getFunctionName(fnRef),
-                fnHandle: await createFunctionHandle(fnRef),
-              }))
-            )
-          ).concat(next ?? []);
-        }
+        const [specificMigration, next] = Array.isArray(
+          specificMigrationOrSeries
+        )
+          ? [
+              specificMigrationOrSeries[0],
+              await Promise.all(
+                specificMigrationOrSeries.slice(1).map(async (fnRef) => ({
+                  name: getFunctionName(fnRef),
+                  fnHandle: await createFunctionHandle(fnRef),
+                }))
+              ),
+            ]
+          : [specificMigrationOrSeries, undefined];
         if (args.fn && specificMigration) {
           throw new Error("Specify only one of fn or specificMigration");
         }
@@ -162,9 +147,18 @@ export class Migrations<DataModel extends GenericDataModel> {
               "`export const runMyMigration = runner(internal.migrations.myMigration)`"
           );
         }
-        const name = args.fn
-          ? this.prefixedName(args.fn)
-          : getFunctionName(specificMigration!);
+        return await this._runInteractive(ctx, args, specificMigration, next);
+      },
+    });
+  }
+
+  private async _runInteractive(
+    ctx: RunMutationCtx,
+    args: MigrationArgs,
+    fnRef?: MigrationFunctionReference,
+    next?: { name: string; fnHandle: string }[]
+  ) {
+        const name = args.fn ? this.prefixedName(args.fn) : getFunctionName(fnRef!);
         async function makeFn(fn: string) {
           try {
             return await createFunctionHandle(
@@ -180,7 +174,17 @@ export class Migrations<DataModel extends GenericDataModel> {
         }
         const fnHandle = args.fn
           ? await makeFn(name)
-          : await createFunctionHandle(specificMigration!);
+          : await createFunctionHandle(fnRef!);
+        if (args.next) {
+          next = (next ?? []).concat(
+            await Promise.all(
+              args.next.map(async (nextFn) => ({
+                name: this.prefixedName(nextFn),
+                fnHandle: await makeFn(this.prefixedName(nextFn)),
+              }))
+            )
+          );
+        }
         let status: MigrationStatus;
         try {
           status = await ctx.runMutation(this.component.public.runMigration, {
@@ -204,8 +208,6 @@ export class Migrations<DataModel extends GenericDataModel> {
         }
 
         return logStatusAndInstructions(name, status, args);
-      },
-    });
   }
 
   /**
@@ -286,15 +288,23 @@ export class Migrations<DataModel extends GenericDataModel> {
       >) ?? (internalMutationGeneric as MutationBuilder<DataModel, "internal">)
     )({
       args: migrationArgs,
-      returns: migrationResult,
       handler: async (ctx, args) => {
+        if (args.fn) {
+          // This is a one-off execution from the CLI or dashboard.
+          // While not the recommended appproach, it's helpful for one-offs and
+          // compatibility with the old way of running migrations.
+          // eslint-disable-next-line  @typescript-eslint/no-explicit-any
+          return (await this._runInteractive(ctx, args)) as any;
+        } else if (args.next?.length) {
+          throw new Error("You can only pass next if you also provide fn");
+        }
         const numItems = args.batchSize || defaultBatchSize;
         if (args.batchSize === 0) {
           console.warn(
             `Batch size is zero. Using the default: ${numItems}\n` +
               "Running this from the dashboard? Here's some args to use:\n" +
               `Dry run: { dryRun: true, cursor: null }\n` +
-              'For real: run `migrations:run` with { "fn": "migrations:yourFnName" }'
+              'For real: { "fn": "migrations:yourFnName" }'
           );
         }
         if (
@@ -302,7 +312,10 @@ export class Migrations<DataModel extends GenericDataModel> {
           args.dryRun === undefined
         ) {
           console.warn(
-            "No cursor or dryRun specified - doing a dry run on the first batch"
+            "No cursor or dryRun specified - doing a dry run on the next batch" +
+              "Running this from the CLI or dashboard? Here's some args to use:\n" +
+              `Dry run: { "dryRun": true, "cursor": null }\n` +
+              'For real: { "fn": "path/to/migrations:yourFnName" }'
           );
           args.cursor = null;
           args.dryRun = true;

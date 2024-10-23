@@ -1,18 +1,19 @@
 import { Infer, ObjectType, v } from "convex/values";
 
 export const migrationArgs = {
+  fn: v.optional(v.string()),
   cursor: v.optional(v.union(v.string(), v.null())),
   batchSize: v.optional(v.number()),
   dryRun: v.optional(v.boolean()),
+  next: v.optional(v.array(v.string())),
 };
 export type MigrationArgs = ObjectType<typeof migrationArgs>;
 
-export const migrationResult = v.object({
-  continueCursor: v.string(),
-  isDone: v.boolean(),
-  processed: v.number(),
-});
-export type MigrationResult = Infer<typeof migrationResult>;
+export type MigrationResult = {
+  continueCursor: string;
+  isDone: boolean;
+  processed: number;
+};
 
 export const migrationStatus = v.object({
   name: v.string(),
