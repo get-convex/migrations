@@ -19,7 +19,7 @@ export const setDefaultValue = migrations.define({
 });
 ```
 
-You can then run it programmatically or from the CLI. See [below](#usage).
+You can then run it programmatically or from the CLI. See [below](#running-migrations-one-at-a-time).
 
 Migrations allow you to define functions that run on all documents in a table
 (or a specified subset). They run in batches asynchronously (online migration).
