@@ -140,11 +140,11 @@ export const runMigration = mutation({
           }
         }
         if (args.cursor === undefined) {
-          if (i === next.length) {
-            console.debug(`Migration${i > 0 ? "s" : ""} already done.`);
+          if (next.length && i === next.length) {
+            console.info(`Migration${i > 0 ? "s" : ""} up next already done.`);
           }
         } else {
-          console.debug(
+          console.info(
             `Migration ${args.name} is done.` +
               (i < next.length ? ` Next: ${next[i]!.name}` : "")
           );
@@ -253,7 +253,19 @@ export const cancel = mutation({
     if (!migration) {
       throw new Error(`Migration ${args.name} not found`);
     }
-    return cancelMigration(ctx, migration);
+    const state = await cancelMigration(ctx, migration);
+    if (state.isDone) {
+      console.log(
+        `Did not cancel: migration ${migration.name} was already done`
+      );
+    } else if (state.workerStatus === "canceled") {
+      console.log(
+        `Did not cancel: migration ${migration.name} ` + state.workerStatus
+          ? `was ${state.workerStatus} already`
+          : "was not running"
+      );
+    }
+    return state;
   },
 });
 
@@ -264,7 +276,7 @@ async function cancelMigration(ctx: MutationCtx, migration: Doc<"migrations">) {
   }
   if (state.workerStatus === "pending" || state.workerStatus === "inProgress") {
     await ctx.scheduler.cancel(migration.workerId!);
-    console.log(`Canceled migration ${migration.name}`, state);
+    console.log(`Canceled migration ${migration.name}`);
     return { ...state, workerStatus: "canceled" as const };
   }
   return state;
