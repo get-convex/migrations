@@ -56,12 +56,7 @@ export declare const components: {
           name: string;
           next?: Array<string>;
           processed: number;
-          workerStatus?:
-            | "pending"
-            | "inProgress"
-            | "success"
-            | "failed"
-            | "canceled";
+          state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
         }
       >;
       cancelAll: FunctionReference<
@@ -78,12 +73,7 @@ export declare const components: {
           name: string;
           next?: Array<string>;
           processed: number;
-          workerStatus?:
-            | "pending"
-            | "inProgress"
-            | "success"
-            | "failed"
-            | "canceled";
+          state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
         }>
       >;
       getStatus: FunctionReference<
@@ -100,12 +90,7 @@ export declare const components: {
           name: string;
           next?: Array<string>;
           processed: number;
-          workerStatus?:
-            | "pending"
-            | "inProgress"
-            | "success"
-            | "failed"
-            | "canceled";
+          state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
         }>
       >;
       runMigration: FunctionReference<
@@ -129,12 +114,7 @@ export declare const components: {
           name: string;
           next?: Array<string>;
           processed: number;
-          workerStatus?:
-            | "pending"
-            | "inProgress"
-            | "success"
-            | "failed"
-            | "canceled";
+          state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
         }
       >;
     };

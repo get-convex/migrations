@@ -203,7 +203,7 @@ export class Migrations<DataModel extends GenericDataModel> {
           }
         }
 
-        logStatusAndInstructions(name, status, args.dryRun);
+        return logStatusAndInstructions(name, status, args);
       },
     });
   }
@@ -590,59 +590,74 @@ export type UseApi<API> = Expand<{
 function logStatusAndInstructions(
   name: string,
   status: MigrationStatus,
-  dryRun: boolean = false
+  args: {
+    fn?: string;
+    cursor?: string | null;
+    batchSize?: number;
+    dryRun?: boolean;
+  }
 ) {
-  const dry = dryRun ? "DRY RUN: " : "";
-  const log = function (s: string) {
-    console.log(dry + s);
-  };
+  const output: Record<string, unknown> = {};
   if (status.isDone) {
-    if (status.latestEnd !== Date.now()) {
-      log("Migration already done.");
+    if (status.latestEnd! < Date.now()) {
+      output["Status"] = "Migration already done.";
     } else if (status.latestStart === status.latestEnd) {
-      log("Migration was started and finished in one batch.");
+      output["Status"] = "Migration was started and finished in one batch.";
     } else {
-      log("Migration completed with this batch.");
+      output["Status"] = "Migration completed with this batch.";
     }
   } else {
-    if (status.latestStart === Date.now()) {
-      log("Migration started.");
+    if (status.state === "failed") {
+      output["Status"] = `Migration failed: ${status.error}`;
+    } else if (status.state === "canceled") {
+      output["Status"] = "Migration canceled.";
+    } else if (status.latestStart >= Date.now()) {
+      output["Status"] = "Migration started.";
     } else {
-      log("Migration already underway.");
+      output["Status"] = "Migration running.";
     }
   }
-  log(`Name: ${name}`);
-  log(`Started: ${new Date(status.latestStart).toISOString()}`);
-  if (status.latestEnd) {
-    log(`Finished: ${new Date(status.latestEnd).toISOString()}`);
+  if (args.dryRun) {
+    output["DryRun"] = "No changes were committed.";
+    output["Status"] = "DRY RUN: " + output["Status"];
   }
-  log(`Processed: ${status.processed}`);
+  output["Name"] = name;
+  output["lastStarted"] = new Date(status.latestStart).toISOString();
+  if (status.latestEnd) {
+    output["lastFinished"] = new Date(status.latestEnd).toISOString();
+  }
+  output["processed"] = status.processed;
   if (status.next?.length) {
     if (status.isDone) {
-      log(`It will now attempt:`);
+      output["nowUp"] = status.next;
     } else {
-      log(`After it finishes, it will run:`);
+      output["nextUp"] = status.next;
     }
-    log(`- ${status.next.join("\n- ")}`);
   }
-  log("");
   const nextArgs = (status.next || []).map((n) => `"${n}"`).join(", ");
   const run = `npx convex run --component migrations`;
-  if (status.isDone) {
-    log("To start over, use these arguments:");
-    log(`  '{"fn": "${name}", "cursor": null}'`);
-    if (status.next?.length) {
-      log("");
-      log(`To monitor progress of the next migrations:`);
-      log(`  ${run} public:status '{"migrations": [${nextArgs}]}' # --prod`);
+  if (!args.dryRun) {
+    if (status.state === "inProgress") {
+      output["toCancel"] = {
+        cmd: `${run} public:cancel`,
+        args: `{"name": "${name}"}`,
+        prod: `--prod`,
+      };
+      output["toMonitorStatus"] = {
+        cmd: `${run} --watch public:getStatus`,
+        args: `{"names": ["${name}"${status.next?.length ? ", " + nextArgs : ""}]}`,
+        prod: `--prod`,
+      };
+    } else {
+      output["toStartOver"] = JSON.stringify({ ...args, cursor: null });
+      if (status.next?.length) {
+        output["toMonitorStatus"] = {
+          cmd: `${run} --watch public:getStatus`,
+          args: `{"names": [${nextArgs}]}`,
+          prod: `--prod`,
+        };
+      }
     }
-  } else {
-    log("To cancel:");
-    log(`  ${run} public:cancel '{"name": "${name}"}' # --prod`);
-    log("");
-    log("To monitor progress:");
-    log(
-      `  ${run} public:status '{"migrations": ["${name}"${status.next?.length ? ", " + nextArgs : ""}]}' # --prod`
-    );
   }
+  return output;
 }

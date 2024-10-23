@@ -20,14 +20,12 @@ export const migrationStatus = v.object({
   processed: v.number(),
   isDone: v.boolean(),
   error: v.optional(v.string()),
-  workerStatus: v.optional(
-    v.union(
-      v.literal("pending"),
-      v.literal("inProgress"),
-      v.literal("success"),
-      v.literal("failed"),
-      v.literal("canceled")
-    )
+  state: v.union(
+    v.literal("inProgress"),
+    v.literal("success"),
+    v.literal("failed"),
+    v.literal("canceled"),
+    v.literal("unknown")
   ),
   latestStart: v.number(),
   latestEnd: v.optional(v.number()),

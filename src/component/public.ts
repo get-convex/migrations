@@ -228,6 +228,16 @@ async function getMigrationState(
   const args = worker?.args[0] as
     | ObjectType<typeof runMigrationArgs>
     | undefined;
+  const state = migration.isDone
+    ? "success"
+    : migration.error || worker?.state.kind === "failed"
+      ? "failed"
+      : worker?.state.kind === "canceled"
+        ? "canceled"
+        : worker?.state.kind === "inProgress" ||
+            worker?.state.kind === "pending"
+          ? "inProgress"
+          : "unknown";
   return {
     name: migration.name,
     cursor: migration.cursor,
@@ -236,7 +246,7 @@ async function getMigrationState(
     latestStart: migration.latestStart,
     latestEnd: migration.latestEnd,
     error: migration.error,
-    workerStatus: worker?.state.kind,
+    state,
     batchSize: args?.batchSize,
     next: args?.next?.map((n: { name: string }) => n.name),
   };
@@ -255,15 +265,9 @@ export const cancel = mutation({
       throw new Error(`Migration ${args.name} not found`);
     }
     const state = await cancelMigration(ctx, migration);
-    if (state.isDone) {
+    if (state.state !== "canceled") {
       console.log(
-        `Did not cancel: migration ${migration.name} was already done`
-      );
-    } else if (state.workerStatus === "canceled") {
-      console.log(
-        `Did not cancel: migration ${migration.name} ` + state.workerStatus
-          ? `was ${state.workerStatus} already`
-          : "was not running"
+        `Did not cancel migration ${migration.name}. Status was ${state.state}`
       );
     }
     return state;
@@ -275,10 +279,10 @@ async function cancelMigration(ctx: MutationCtx, migration: Doc<"migrations">) {
   if (state.isDone) {
     return state;
   }
-  if (state.workerStatus === "pending" || state.workerStatus === "inProgress") {
+  if (state.state === "inProgress") {
     await ctx.scheduler.cancel(migration.workerId!);
     console.log(`Canceled migration ${migration.name}`);
-    return { ...state, workerStatus: "canceled" as const };
+    return { ...state, state: "canceled" as const };
   }
   return state;
 }

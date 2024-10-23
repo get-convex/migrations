@@ -44,12 +44,7 @@ export type Mounts = {
         name: string;
         next?: Array<string>;
         processed: number;
-        workerStatus?:
-          | "pending"
-          | "inProgress"
-          | "success"
-          | "failed"
-          | "canceled";
+        state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
       }
     >;
     cancelAll: FunctionReference<
@@ -66,12 +61,7 @@ export type Mounts = {
         name: string;
         next?: Array<string>;
         processed: number;
-        workerStatus?:
-          | "pending"
-          | "inProgress"
-          | "success"
-          | "failed"
-          | "canceled";
+        state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
       }>
     >;
     getStatus: FunctionReference<
@@ -88,12 +78,7 @@ export type Mounts = {
         name: string;
         next?: Array<string>;
         processed: number;
-        workerStatus?:
-          | "pending"
-          | "inProgress"
-          | "success"
-          | "failed"
-          | "canceled";
+        state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
       }>
     >;
     runMigration: FunctionReference<
@@ -117,12 +102,7 @@ export type Mounts = {
         name: string;
         next?: Array<string>;
         processed: number;
-        workerStatus?:
-          | "pending"
-          | "inProgress"
-          | "success"
-          | "failed"
-          | "canceled";
+        state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
       }
     >;
   };
