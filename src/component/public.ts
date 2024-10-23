@@ -85,7 +85,7 @@ export const migrate = mutation({
       state.cursor = result.continueCursor;
       state.isDone = result.isDone;
       state.processed += result.processed;
-      if (result.isDone) {
+      if (result.isDone && state.latestEnd === undefined) {
         state.latestEnd = Date.now();
       }
     }
