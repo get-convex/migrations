@@ -39,6 +39,14 @@ export const migrate = mutation({
   handler: async (ctx, args) => {
     // Step 1: Get or create the state.
     const { fnHandle, batchSize, next: next_, dryRun, ...initialState } = args;
+    if (!fnHandle.startsWith("function://")) {
+      throw new Error(
+        "Invalid fnHandle.\n" +
+          "Do not call this from the CLI or dashboard directly.\n" +
+          "Instead use the `migrations.runner` function to run migrations." +
+          "See https://www.convex.dev/components/migrations"
+      );
+    }
     const state =
       (await ctx.db
         .query("migrations")
