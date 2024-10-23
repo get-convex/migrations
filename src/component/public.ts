@@ -102,53 +102,53 @@ export const runMigration = mutation({
       updateState(result);
       state.error = undefined;
 
-    // Step 3: Schedule the next batch or next migration.
-    if (!state.isDone) {
-      // Recursively schedule the next batch.
-      state.workerId = await ctx.scheduler.runAfter(
-        0,
-        api.public.runMigration,
-        {
-          ...args,
-          cursor: state.cursor,
-        }
-      );
-    } else {
-      state.workerId = undefined;
-      // Schedule the next migration in the series.
-      const next = next_ ?? [];
-      // Find the next migration that hasn't been done.
-      let i = 0;
-      for (; i < next.length; i++) {
-        const doc = await ctx.db
-          .query("migrations")
-          .withIndex("name", (q) => q.eq("name", next[i]!.name))
-          .unique();
-        if (!doc || !doc.isDone) {
-          const [nextFn, ...rest] = next.slice(i);
-          if (nextFn) {
-            await ctx.scheduler.runAfter(0, api.public.runMigration, {
-              name: nextFn.name,
-              fnHandle: nextFn.fnHandle,
-              next: rest,
-              batchSize,
-              dryRun,
-            });
+      // Step 3: Schedule the next batch or next migration.
+      if (!state.isDone) {
+        // Recursively schedule the next batch.
+        state.workerId = await ctx.scheduler.runAfter(
+          0,
+          api.public.runMigration,
+          {
+            ...args,
+            cursor: state.cursor,
           }
-          break;
-        }
-      }
-      if (args.cursor === undefined) {
-        if (i === next.length) {
-          console.debug(`Migration${i > 0 ? "s" : ""} already done.`);
-        }
-      } else {
-        console.debug(
-          `Migration ${args.name} is done.` +
-            (i < next.length ? ` Next: ${next[i]!.name}` : "")
         );
+      } else {
+        state.workerId = undefined;
+        // Schedule the next migration in the series.
+        const next = next_ ?? [];
+        // Find the next migration that hasn't been done.
+        let i = 0;
+        for (; i < next.length; i++) {
+          const doc = await ctx.db
+            .query("migrations")
+            .withIndex("name", (q) => q.eq("name", next[i]!.name))
+            .unique();
+          if (!doc || !doc.isDone) {
+            const [nextFn, ...rest] = next.slice(i);
+            if (nextFn) {
+              await ctx.scheduler.runAfter(0, api.public.runMigration, {
+                name: nextFn.name,
+                fnHandle: nextFn.fnHandle,
+                next: rest,
+                batchSize,
+                dryRun,
+              });
+            }
+            break;
+          }
+        }
+        if (args.cursor === undefined) {
+          if (i === next.length) {
+            console.debug(`Migration${i > 0 ? "s" : ""} already done.`);
+          }
+        } else {
+          console.debug(
+            `Migration ${args.name} is done.` +
+              (i < next.length ? ` Next: ${next[i]!.name}` : "")
+          );
+        }
       }
-    }
     } catch (e) {
       if (dryRun && e instanceof ConvexError && e.data.kind === "DRY RUN") {
         // Add the state to the error to bubble up.
