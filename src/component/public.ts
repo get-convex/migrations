@@ -151,6 +151,7 @@ export const runMigration = mutation({
         }
       }
     } catch (e) {
+      state.workerId = undefined;
       if (dryRun && e instanceof ConvexError && e.data.kind === "DRY RUN") {
         // Add the state to the error to bubble up.
         updateState(e.data.result);
