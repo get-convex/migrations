@@ -149,32 +149,38 @@ export const validateRequiredField = migrations.define({
 
 ### Using the Dashboard or CLI
 
-You can expose a general-purpose function to run your migrations.
-For example, in `convex/migrations.ts` add:
-
-```ts
-export const run = migrations.runner();
-```
-
-Then run it:
-
-```sh
-npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'
-```
-
 To define a one-off function to run a single migration, pass a reference to it:
 
 ```ts
 export const runIt = migrations.runner(internal.migrations.setDefaultValue);
 ```
 
-And run it:
+To run it from the CLI:
 
 ```sh
 npx convex run migrations:runIt
 ```
 
-**Note**: pass `--prod` to run these commands in production.
+**Note**: pass the `--prod` argument to run this and below commands in production
+
+Running it from the dashboard:
+
+![Dashboard screenshot](./dashboard_screenshot.png)
+
+You can also expose a general-purpose function to run your migrations.
+For example, in `convex/migrations.ts` add:
+
+```ts
+export const run = migrations.runner();
+```
+
+Then run it with the [function name](https://docs.convex.dev/functions/query-functions#query-names):
+
+```sh
+npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'
+```
+
+See [below](#shorthand-running-syntax) for a way to just pass `setDefaultValue`.
 
 ### Programmatically
 
@@ -204,16 +210,6 @@ should run on the next deployment.
 
 ### Using the Dashboard or CLI
 
-With the `runner` functions, you can pass a "next" argument to run
-a series of migrations after the first:
-
-```sh
-npx convex run migrations:run '{"fn": "migrations:setDefaultValue", "next":["migrations:clearField"]}'
-# OR
-npx convex run migrations:runIt '{"next":["migrations:clearField"]}'
-
-```
-
 You can also pass a list of migrations to `runner` to have it run a series of
 migrations instead of just one:
 
@@ -228,7 +224,16 @@ export const runAll = migrations.runner([
 Then just run:
 
 ```sh
-npx convex run migrations:runAll # --prod
+npx convex run migrations:runAll
+```
+
+With the `runner` functions, you can pass a "next" argument to run
+a series of migrations after the first:
+
+```sh
+npx convex run migrations:runIt '{"next":["migrations:clearField"]}'
+# OR
+npx convex run migrations:run '{"fn": "migrations:setDefaultValue", "next":["migrations:clearField"]}'
 ```
 
 ### Programmatically
@@ -263,10 +268,10 @@ Note: if you start multiple serial migrations, the behavior is:
 ### Test a migration with dryRun
 
 Before running a migration that may irreversibly change data, you can validate
-a batch by passing `dryRun` to the CLI or `runOne` command:
+a batch by passing `dryRun` to any `runner` or `runOne` command:
 
 ```sh
-npx convex run migrations:run '{"dryRun": true, "fn": "migrations:myMigration"}' # --prod
+npx convex run migrations:runIt '{"dryRun": true}'
 ```
 
 ### Restart a migration
@@ -274,7 +279,7 @@ npx convex run migrations:run '{"dryRun": true, "fn": "migrations:myMigration"}'
 Pass `null` for the `cursor` to force a migration to start over.
 
 ```sh
-npx convex run migrations:run '{"cursor": null, "fn": "migrations:myMigration"}' # --prod
+npx convex run migrations:runIt '{"cursor": null}'
 ```
 
 You can also pass in any valid cursor to start from. You can find valid cursors
@@ -283,10 +288,10 @@ from a known good point as you iterate on the code.
 
 ### Stop a migration
 
-You can stop a migration from the CLI, calling the component API directly:
+You can stop a migration from the CLI or dashboard, calling the component API directly:
 
 ```sh
-npx convex run --component migrations public:cancel '{"name": "migrations:myMigration"}' # --prod
+npx convex run --component migrations public:cancel '{"name": "migrations:myMigration"}'
 ```
 
 Or via `migrations.cancel` programatically.
@@ -300,7 +305,7 @@ await migrations.cancel(ctx, internal.migrations.myMigration);
 To see the live status of migrations as they progress, you can query it via the CLI:
 
 ```sh
-npx convex run --component migrations public:getStatus --watch # --prod
+npx convex run --component migrations public:getStatus --watch
 ```
 
 The `--watch` will live-update the status as it changes.
@@ -387,7 +392,7 @@ await migrations.runOne(ctx, internal.migrations.clearField, {
 ### Shorthand running syntax:
 
 For those that don't want to type out `migrations:myNewMigration` every time
-they run a migration from the CLI, especially if you define your migrations
+they run a migration from the CLI or dashboard, especially if you define your migrations
 elsewhere like `ops/db/migrations:myNewMigration`, you can configure a prefix:
 
 ```ts
