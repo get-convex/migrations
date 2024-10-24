@@ -114,7 +114,7 @@ export const migrate = mutation({
       // Step 3: Schedule the next batch or next migration.
       if (!state.isDone) {
         // Recursively schedule the next batch.
-        state.workerId = await ctx.scheduler.runAfter(0, api.public.migrate, {
+        state.workerId = await ctx.scheduler.runAfter(0, api.lib.migrate, {
           ...args,
           cursor: state.cursor,
         });
@@ -132,7 +132,7 @@ export const migrate = mutation({
           if (!doc || !doc.isDone) {
             const [nextFn, ...rest] = next.slice(i);
             if (nextFn) {
-              await ctx.scheduler.runAfter(0, api.public.migrate, {
+              await ctx.scheduler.runAfter(0, api.lib.migrate, {
                 name: nextFn.name,
                 fnHandle: nextFn.fnHandle,
                 next: rest,
@@ -305,7 +305,7 @@ export const cancelAll = mutation({
       )
       .take(100);
     if (results.length === 100) {
-      await ctx.scheduler.runAfter(0, api.public.cancelAll, {
+      await ctx.scheduler.runAfter(0, api.lib.cancelAll, {
         sinceTs: results[results.length - 1]!._creationTime,
       });
     }

@@ -291,7 +291,7 @@ from a known good point as you iterate on the code.
 You can stop a migration from the CLI or dashboard, calling the component API directly:
 
 ```sh
-npx convex run --component migrations public:cancel '{"name": "migrations:myMigration"}'
+npx convex run --component migrations lib:cancel '{"name": "migrations:myMigration"}'
 ```
 
 Or via `migrations.cancel` programatically.
@@ -305,7 +305,7 @@ await migrations.cancel(ctx, internal.migrations.myMigration);
 To see the live status of migrations as they progress, you can query it via the CLI:
 
 ```sh
-npx convex run --component migrations public:getStatus --watch
+npx convex run --component migrations lib:getStatus --watch
 ```
 
 The `--watch` will live-update the status as it changes.

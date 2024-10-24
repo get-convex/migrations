@@ -187,7 +187,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     }
     let status: MigrationStatus;
     try {
-      status = await ctx.runMutation(this.component.public.migrate, {
+      status = await ctx.runMutation(this.component.lib.migrate, {
         name,
         fnHandle,
         cursor: args.cursor,
@@ -438,7 +438,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       dryRun?: boolean;
     }
   ) {
-    return ctx.runMutation(this.component.public.migrate, {
+    return ctx.runMutation(this.component.lib.migrate, {
       name: getFunctionName(fnRef),
       fnHandle: await createFunctionHandle(fnRef),
       cursor: opts?.cursor,
@@ -491,7 +491,7 @@ export class Migrations<DataModel extends GenericDataModel> {
         fnHandle: await createFunctionHandle(fnRef),
       }))
     );
-    return ctx.runMutation(this.component.public.migrate, {
+    return ctx.runMutation(this.component.lib.migrate, {
       name: getFunctionName(fnRef),
       fnHandle: await createFunctionHandle(fnRef),
       next,
@@ -519,7 +519,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     const names = migrations?.map((m) =>
       typeof m === "string" ? this.prefixedName(m) : getFunctionName(m)
     );
-    return ctx.runQuery(this.component.public.getStatus, {
+    return ctx.runQuery(this.component.lib.getStatus, {
       names,
       limit,
     });
@@ -543,7 +543,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       typeof migration === "string"
         ? this.prefixedName(migration)
         : getFunctionName(migration);
-    return ctx.runMutation(this.component.public.cancel, {
+    return ctx.runMutation(this.component.lib.cancel, {
       name,
     });
   }
@@ -557,7 +557,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @returns The status of up to 100 of the canceled migrations.
    */
   async cancelAll(ctx: RunMutationCtx) {
-    return ctx.runMutation(this.component.public.cancelAll, {});
+    return ctx.runMutation(this.component.lib.cancelAll, {});
   }
 
   // Helper to prefix the name with the location.
@@ -663,12 +663,12 @@ function logStatusAndInstructions(
   if (!args.dryRun) {
     if (status.state === "inProgress") {
       output["toCancel"] = {
-        cmd: `${run} public:cancel`,
+        cmd: `${run} lib:cancel`,
         args: `{"name": "${name}"}`,
         prod: `--prod`,
       };
       output["toMonitorStatus"] = {
-        cmd: `${run} --watch public:getStatus`,
+        cmd: `${run} --watch lib:getStatus`,
         args: `{"names": ["${name}"${status.next?.length ? ", " + nextArgs : ""}]}`,
         prod: `--prod`,
       };
@@ -676,7 +676,7 @@ function logStatusAndInstructions(
       output["toStartOver"] = JSON.stringify({ ...args, cursor: null });
       if (status.next?.length) {
         output["toMonitorStatus"] = {
-          cmd: `${run} --watch public:getStatus`,
+          cmd: `${run} --watch lib:getStatus`,
           args: `{"names": [${nextArgs}]}`,
           prod: `--prod`,
         };

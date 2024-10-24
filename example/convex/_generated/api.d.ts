@@ -41,7 +41,7 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   migrations: {
-    public: {
+    lib: {
       cancel: FunctionReference<
         "mutation",
         "internal",
