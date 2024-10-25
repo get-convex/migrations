@@ -64,6 +64,7 @@ export type Mounts = {
         state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
       }>
     >;
+    clearAll: FunctionReference<"mutation", "public", { before?: number }, any>;
     getStatus: FunctionReference<
       "query",
       "public",

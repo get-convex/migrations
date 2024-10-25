@@ -304,3 +304,24 @@ export const cancelAll = mutation({
     return Promise.all(results.map((m) => cancelMigration(ctx, m)));
   },
 });
+
+export const clearAll = mutation({
+  args: { before: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const results = await ctx.db
+      .query("migrations")
+      .withIndex("by_creation_time", (q) =>
+        q.lte("_creationTime", args.before ?? Date.now())
+      )
+      .order("desc")
+      .take(100);
+    for (const m of results) {
+      await ctx.db.delete(m._id);
+    }
+    if (results.length === 100) {
+      await ctx.scheduler.runAfter(0, api.lib.clearAll, {
+        before: results[99]._creationTime,
+      });
+    }
+  },
+});

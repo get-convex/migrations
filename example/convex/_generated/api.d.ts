@@ -76,6 +76,12 @@ export declare const components: {
           state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
         }>
       >;
+      clearAll: FunctionReference<
+        "mutation",
+        "internal",
+        { before?: number },
+        any
+      >;
       getStatus: FunctionReference<
         "query",
         "internal",
