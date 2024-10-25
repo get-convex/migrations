@@ -302,10 +302,12 @@ export class Migrations<DataModel extends GenericDataModel> {
         if (args.batchSize === 0) {
           console.warn(
             `Batch size is zero. Using the default: ${numItems}\n` +
-              "Running this from the dashboard? Here's some args to use:\n" +
-              `Dry run: { dryRun: true, cursor: null }\n` +
-              'For real: { "fn": "migrations:yourFnName" }'
+              "Running this from the dashboard? Here's some args to use:"
           );
+          console.warn({
+            "Dry run": '{ "dryRun": true, "cursor": null }',
+            "For real": '{ "fn": "path/to/migrations:yourFnName" }',
+          });
         }
         if (
           (args.cursor === undefined || args.cursor === "") &&
@@ -313,10 +315,12 @@ export class Migrations<DataModel extends GenericDataModel> {
         ) {
           console.warn(
             "No cursor or dryRun specified - doing a dry run on the next batch" +
-              "Running this from the CLI or dashboard? Here's some args to use:\n" +
-              `Dry run: { "dryRun": true, "cursor": null }\n` +
-              'For real: { "fn": "path/to/migrations:yourFnName" }'
+              "Running this from the CLI or dashboard? Here's some args to use:"
           );
+          console.warn({
+            "Dry run": '{ "dryRun": true, "cursor": null }',
+            "For real": '{ "fn": "path/to/migrations:yourFnName" }',
+          });
           args.cursor = null;
           args.dryRun = true;
         }
