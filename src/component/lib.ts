@@ -315,6 +315,7 @@ export const cancelAll = mutation({
 
 export const clearAll = mutation({
   args: { before: v.optional(v.number()) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const results = await ctx.db
       .query("migrations")
