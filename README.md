@@ -2,8 +2,6 @@
 
 [![npm version](https://badge.fury.io/js/@convex-dev%2Fmigrations.svg)](https://badge.fury.io/js/@convex-dev%2Fmigrations)
 
-**Note: Convex Components are currently in beta**
-
 <!-- START: Include on https://convex.dev/components -->
 
 Define and run migrations, like this one setting a default value for users:
