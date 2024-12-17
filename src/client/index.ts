@@ -254,6 +254,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param batchSize - The number of documents to process in a batch.
    *   If not set, defaults to the value passed to makeMigration,
    *   or {@link DEFAULT_BATCH_SIZE}. Overriden by arg at runtime if supplied.
+   * @param parallelize - If true, each migration batch will be run in parallel.
    * @returns An internal mutation that runs the migration.
    */
   define<TableName extends TableNamesInDataModel<DataModel>>({
@@ -261,6 +262,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     migrateOne,
     customRange,
     batchSize: functionDefaultBatchSize,
+    parallelize,
   }: {
     table: TableName;
     migrateOne: (
@@ -274,6 +276,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       q: QueryInitializer<NamedTableInfo<DataModel, TableName>>
     ) => OrderedQuery<NamedTableInfo<DataModel, TableName>>;
     batchSize?: number;
+    parallelize?: boolean;
   }) {
     const defaultBatchSize =
       functionDefaultBatchSize ??
@@ -341,7 +344,7 @@ export class Migrations<DataModel extends GenericDataModel> {
           cursor: args.cursor,
           numItems,
         });
-        for (const doc of page) {
+        async function doOne(doc: DocumentByName<DataModel, TableName>) {
           try {
             const next = await migrateOne(
               ctx,
@@ -353,6 +356,13 @@ export class Migrations<DataModel extends GenericDataModel> {
           } catch (error) {
             console.error(`Document failed: ${doc._id}`);
             throw error;
+          }
+        }
+        if (parallelize) {
+          await Promise.all(page.map(doOne));
+        } else {
+          for (const doc of page) {
+            await doOne(doc);
           }
         }
         const result = {

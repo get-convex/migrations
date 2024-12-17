@@ -20,6 +20,7 @@ export const setDefaultValue = migrations.define({
       return { optionalField: "default" };
     }
   },
+  parallelize: true,
 });
 
 export const clearField = migrations.define({
