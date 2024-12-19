@@ -387,6 +387,24 @@ await migrations.runOne(ctx, internal.migrations.clearField, {
 });
 ```
 
+### Parallelizing batches
+
+Each batch is processed serially, but within a batch you can have each
+`migrateOne` call run in parallel if you pass `parallelize: true`.
+If you do so, ensure your callback doesn't assume that each call is isolated.
+For instance, if each call reads then updates the same counter, then multiple
+functions in the same batch could read the same counter value, and get off by
+one.
+As a result, migrations are run serially by default.
+
+```ts
+export const clearField = migrations.define({
+  table: "myTable",
+  parallelize: true,
+  migrateOne: () => ({ optionalField: undefined }),
+});
+```
+
 ### Shorthand running syntax:
 
 For those that don't want to type out `migrations:myNewMigration` every time
