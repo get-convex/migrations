@@ -79,6 +79,9 @@ export default app;
 
 Examples below are assuming the code is in `convex/migrations.ts`.
 This is not a requirement.
+If you want to use a different file, make sure to change the examples below from
+`internal.migrations.*` to your new file name, like `internal.myFolder.myMigrationsFile.*`
+or CLI arguments like `migrations:*` to `myFolder/myMigrationsFile:*`.
 
 ```ts
 import { Migrations } from "@convex-dev/migrations";
