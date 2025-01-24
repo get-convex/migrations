@@ -39,6 +39,9 @@ export const migrate = mutation({
   handler: async (ctx, args) => {
     // Step 1: Get or create the state.
     const { fnHandle, batchSize, next: next_, dryRun, ...initialState } = args;
+    if (batchSize !== undefined && batchSize <= 0) {
+      throw new Error("Batch size must be greater than 0");
+    }
     if (!fnHandle.startsWith("function://")) {
       throw new Error(
         "Invalid fnHandle.\n" +
