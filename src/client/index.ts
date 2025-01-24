@@ -302,10 +302,12 @@ export class Migrations<DataModel extends GenericDataModel> {
           throw new Error("You can only pass next if you also provide fn");
         }
         const numItems = args.batchSize || defaultBatchSize;
-        if (args.batchSize === 0) {
+        if (!args.batchSize) {
+          if (args.batchSize === 0) {
+            console.warn(`Batch size is zero. Using the default: ${numItems}`);
+          }
           console.warn(
-            `Batch size is zero. Using the default: ${numItems}\n` +
-              "Running this from the dashboard? Here's some args to use:"
+            "Running this from the dashboard? Here's some args to use:"
           );
           console.warn({
             "Dry run": '{ "dryRun": true, "cursor": null }',
