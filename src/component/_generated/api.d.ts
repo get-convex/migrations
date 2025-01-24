@@ -1,5 +1,3 @@
-/* prettier-ignore-start */
-
 /* eslint-disable */
 /**
  * Generated `api` utility.
@@ -64,7 +62,12 @@ export type Mounts = {
         state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
       }>
     >;
-    clearAll: FunctionReference<"mutation", "public", { before?: number }, any>;
+    clearAll: FunctionReference<
+      "mutation",
+      "public",
+      { before?: number },
+      null
+    >;
     getStatus: FunctionReference<
       "query",
       "public",
@@ -123,5 +126,3 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {};
-
-/* prettier-ignore-end */

@@ -1,5 +1,3 @@
-/* prettier-ignore-start */
-
 /* eslint-disable */
 /**
  * Generated `api` utility.
@@ -80,7 +78,7 @@ export declare const components: {
         "mutation",
         "internal",
         { before?: number },
-        any
+        null
       >;
       getStatus: FunctionReference<
         "query",
@@ -126,5 +124,3 @@ export declare const components: {
     };
   };
 };
-
-/* prettier-ignore-end */
