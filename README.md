@@ -178,7 +178,7 @@ export const run = migrations.runner();
 Then run it with the [function name](https://docs.convex.dev/functions/query-functions#query-names):
 
 ```sh
-npx convex run migrations:run '{"fn": "migrations:setDefaultValue"}'
+npx convex run migrations:run '{fn: "migrations:setDefaultValue"}'
 ```
 
 See [below](#shorthand-running-syntax) for a way to just pass `setDefaultValue`.
@@ -232,9 +232,9 @@ With the `runner` functions, you can pass a "next" argument to run
 a series of migrations after the first:
 
 ```sh
-npx convex run migrations:runIt '{"next":["migrations:clearField"]}'
+npx convex run migrations:runIt '{next:["migrations:clearField"]}'
 # OR
-npx convex run migrations:run '{"fn": "migrations:setDefaultValue", "next":["migrations:clearField"]}'
+npx convex run migrations:run '{fn: "migrations:setDefaultValue", next:["migrations:clearField"]}'
 ```
 
 ### Programmatically
@@ -272,7 +272,7 @@ Before running a migration that may irreversibly change data, you can validate
 a batch by passing `dryRun` to any `runner` or `runOne` command:
 
 ```sh
-npx convex run migrations:runIt '{"dryRun": true}'
+npx convex run migrations:runIt '{dryRun: true}'
 ```
 
 ### Restart a migration
@@ -280,7 +280,7 @@ npx convex run migrations:runIt '{"dryRun": true}'
 Pass `null` for the `cursor` to force a migration to start over.
 
 ```sh
-npx convex run migrations:runIt '{"cursor": null}'
+npx convex run migrations:runIt '{cursor: null}'
 ```
 
 You can also pass in any valid cursor to start from. You can find valid cursors
@@ -292,7 +292,7 @@ from a known good point as you iterate on the code.
 You can stop a migration from the CLI or dashboard, calling the component API directly:
 
 ```sh
-npx convex run --component migrations lib:cancel '{"name": "migrations:myMigration"}'
+npx convex run --component migrations lib:cancel '{name: "migrations:myMigration"}'
 ```
 
 Or via `migrations.cancel` programatically.
@@ -424,7 +424,7 @@ export const migrations = new Migrations(components.migrations, {
 And then just call:
 
 ```sh
-npx convex run migrations:run '{"fn": "myNewMutation", "next": ["myNextMutation"]}'
+npx convex run migrations:run '{fn: "myNewMutation", next: ["myNextMutation"]}'
 ```
 
 Or in code:
