@@ -1,8 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 import { convexTest } from "convex-test";
-import schema from "./schema";
-import { modules } from "./setup.test";
-import { api } from "./_generated/api";
+import schema from "./schema.js";
+import { modules } from "./setup.test.js";
+import { api } from "./_generated/api.js";
 
 describe("migrations", () => {
   async function setupTest() {

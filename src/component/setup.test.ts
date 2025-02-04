@@ -2,6 +2,10 @@
 
 import { test } from "vitest";
 
-export const modules = import.meta.glob("./**/*.*s");
+export const modules = {
+  "./lib.test.js": () => import("./lib.test.js"),
+  "./schema.js": () => import("./schema.js"),
+  "./setup.test.js": () => import("./setup.test.js"),
+};
 
 test("setup", () => {});
