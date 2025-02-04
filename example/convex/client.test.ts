@@ -3,9 +3,15 @@
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { Migrations } from "@convex-dev/migrations";
+import { DataModel } from "./_generated/dataModel";
 import schema from "./schema";
 import componentSchema from "../../src/component/schema";
+import migrationsSchema from "@convex-dev/migrations/src/component/schema";
 import { api, components, internal } from "./_generated/api";
+
+const migrationsModules = import.meta.glob(
+  "../node_modules/@convex-dev/migrations/src/component/**/*.ts"
+);
 
 const modules = import.meta.glob("./**/*.ts");
 const componentModules = import.meta.glob("../../src/component/**/*.ts");
@@ -13,24 +19,24 @@ const componentModules = import.meta.glob("../../src/component/**/*.ts");
 describe("migrations client", () => {
   async function setupTest() {
     const t = convexTest(schema, modules);
-    t.registerComponent("migrations", componentSchema, componentModules);
+    t.registerComponent("migrations", migrationsSchema, migrationsModules);
     await t.mutation(internal.example.seed, { count: 10 });
     return t;
   }
 
   let testEnv: {
     t: Awaited<ReturnType<typeof setupTest>>;
-    migrations: Migrations;
-    testMigration: ReturnType<typeof Migrations.prototype.define>;
+    migrations: Migrations<DataModel>;
+    testMigration: ReturnType<typeof Migrations<DataModel>["prototype"]["define"]>;
   };
 
   beforeEach(async () => {
     vi.useFakeTimers();
     const t = await setupTest();
-    const migrations = new Migrations(components.migrations);
+    const migrations = new Migrations<DataModel>(components.migrations);
     const testMigration = migrations.define({
       table: "myTable",
-      migrateOne: async () => ({ optionalField: "default" })
+      migrateOne: async (ctx: { db: any }, doc: { optionalField?: string }) => ({ optionalField: "default" })
     });
     testEnv = { t, migrations, testMigration };
   });
@@ -56,9 +62,9 @@ describe("migrations client", () => {
     
     const validateMigration = migrations.define({
       table: "myTable",
-      customRange: (query) =>
-        query.withIndex("by_requiredField", (q) => q.eq("requiredField", "")),
-      migrateOne: async (_ctx, doc) => {
+      customRange: (query: any) =>
+        query.withIndex("by_requiredField", (q: any) => q.eq("requiredField", "")),
+      migrateOne: async (ctx: { db: any }, doc: { requiredField?: string }) => {
         return { requiredField: "<unknown>" };
       },
     });
@@ -77,7 +83,7 @@ describe("migrations client", () => {
     
     const convertMigration = migrations.define({
       table: "myTable",
-      migrateOne: async (ctx, doc) => {
+      migrateOne: async (ctx: { db: any }, doc: { _id: any; unionField: string | number }) => {
         if (typeof doc.unionField === "number") {
           await ctx.db.patch(doc._id, { unionField: doc.unionField.toString() });
         }
@@ -99,7 +105,7 @@ describe("migrations client", () => {
       table: "myTable",
       batchSize: 2,
       parallelize: true,
-      migrateOne: async (_ctx, doc) => {
+      migrateOne: async (ctx: { db: any }, doc: { processed?: boolean }) => {
         return { processed: true };
       },
     });
@@ -130,7 +136,7 @@ describe("migrations client", () => {
     
     const stateMigration = migrations.define({
       table: "myTable",
-      migrateOne: async (_ctx, doc) => {
+      migrateOne: async (ctx: { db: any }, doc: { state?: string }) => {
         return { state: "migrated" };
       },
     });
