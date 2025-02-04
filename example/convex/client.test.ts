@@ -6,7 +6,7 @@ import { Migrations } from "@convex-dev/migrations";
 import { DataModel } from "./_generated/dataModel";
 import schema from "./schema";
 import componentSchema from "../../src/component/schema";
-import migrationsSchema from "@convex-dev/migrations/src/component/schema";
+import migrationsSchema from "../node_modules/@convex-dev/migrations/src/component/schema";
 import { api, components, internal } from "./_generated/api";
 
 const migrationsModules = import.meta.glob(
@@ -25,9 +25,9 @@ describe("migrations client", () => {
   }
 
   let testEnv: {
-    t: Awaited<ReturnType<typeof setupTest>>;
+    t: ReturnType<typeof convexTest>;
     migrations: Migrations<DataModel>;
-    testMigration: ReturnType<typeof Migrations<DataModel>["prototype"]["define"]>;
+    testMigration: ReturnType<typeof Migrations.prototype.define>;
   };
 
   beforeEach(async () => {
@@ -49,9 +49,9 @@ describe("migrations client", () => {
   test("run basic migration", async () => {
     const { t, migrations, testMigration } = testEnv;
     
-    await migrations.runOne(t.ctx, testMigration);
+    await migrations.runOne(t, testMigration);
     
-    const docs = await t.db.query("myTable").collect();
+    const docs = await t.query("myTable").collect();
     for (const doc of docs) {
       expect(doc.optionalField).toBe("default");
     }
@@ -62,17 +62,16 @@ describe("migrations client", () => {
     
     const validateMigration = migrations.define({
       table: "myTable",
-      customRange: (query: any) =>
-        query.withIndex("by_requiredField", (q: any) => q.eq("requiredField", "")),
-      migrateOne: async (ctx: { db: any }, doc: { requiredField?: string }) => {
+      customRange: (query) =>
+        query.withIndex("by_requiredField", (q) => q.eq("requiredField", "")),
+      migrateOne: async (ctx, doc: { requiredField?: string }) => {
         return { requiredField: "<unknown>" };
       },
     });
     
-    await migrations.runOne(t.ctx, validateMigration);
+    await migrations.runOne(t, validateMigration);
     
-    const docs = await t.db
-      .query("myTable")
+    const docs = await t.query("myTable")
       .withIndex("by_requiredField", (q) => q.eq("requiredField", ""))
       .collect();
     expect(docs).toHaveLength(0);
@@ -90,9 +89,9 @@ describe("migrations client", () => {
       },
     });
     
-    await migrations.runOne(t.ctx, convertMigration);
+    await migrations.runOne(t, convertMigration);
     
-    const docs = await t.db.query("myTable").collect();
+    const docs = await t.query("myTable").collect();
     for (const doc of docs) {
       expect(typeof doc.unionField).toBe("string");
     }
@@ -105,14 +104,14 @@ describe("migrations client", () => {
       table: "myTable",
       batchSize: 2,
       parallelize: true,
-      migrateOne: async (ctx: { db: any }, doc: { processed?: boolean }) => {
+      migrateOne: async (ctx, doc: { processed?: boolean }) => {
         return { processed: true };
       },
     });
     
-    await migrations.runOne(t.ctx, batchMigration);
+    await migrations.runOne(t, batchMigration);
     
-    const docs = await t.db.query("myTable").collect();
+    const docs = await t.query("myTable").collect();
     for (const doc of docs) {
       expect(doc.processed).toBe(true);
     }
@@ -128,7 +127,7 @@ describe("migrations client", () => {
       },
     });
     
-    await expect(migrations.runOne(t.ctx, failingMigration)).rejects.toThrow("Migration failed");
+    await expect(migrations.runOne(t, failingMigration)).rejects.toThrow("Migration failed");
   });
 
   test("track migration state", async () => {
@@ -136,12 +135,12 @@ describe("migrations client", () => {
     
     const stateMigration = migrations.define({
       table: "myTable",
-      migrateOne: async (ctx: { db: any }, doc: { state?: string }) => {
+      migrateOne: async (ctx, doc: { state?: string }) => {
         return { state: "migrated" };
       },
     });
     
-    const migration = migrations.runOne(t.ctx, stateMigration);
+    const migration = migrations.runOne(t, stateMigration);
     
     // Check initial state
     let status = await t.query(api.lib.getStatus, { names: ["stateMigration"] });
