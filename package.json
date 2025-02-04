@@ -20,7 +20,8 @@
     "build:cjs": "tsc --project ./commonjs.json && echo '{\\n  \"type\": \"commonjs\"\\n}' > dist/commonjs/package.json",
     "dev": "cd example; npm run dev",
     "typecheck": "tsc --noEmit",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "test": "vitest"
   },
   "files": [
     "dist",
@@ -54,11 +55,13 @@
   "devDependencies": {
     "@eslint/js": "^9.9.1",
     "@types/node": "^18.17.0",
+    "convex-test": "^0.0.35",
     "eslint": "^9.9.1",
     "globals": "^15.9.0",
     "prettier": "3.2.5",
     "typescript": "~5.0.3",
-    "typescript-eslint": "^8.4.0"
+    "typescript-eslint": "^8.4.0",
+    "vitest": "^3.0.5"
   },
   "main": "./dist/commonjs/client/index.js",
   "types": "./dist/commonjs/client/index.d.ts",
