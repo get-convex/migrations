@@ -1,36 +1,38 @@
-import { describe, expect, test, vi } from "vitest";
+/// <reference types="vite/client" />
+
 import { convexTest } from "convex-test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { Migrations } from "@convex-dev/migrations";
 import schema from "./schema";
+import componentSchema from "../../src/component/schema";
 import { api, components, internal } from "./_generated/api";
+
+const modules = import.meta.glob("./**/*.ts");
+const componentModules = import.meta.glob("../../src/component/**/*.ts");
 
 describe("migrations client", () => {
   async function setupTest() {
     const t = convexTest(schema, modules);
-    t.registerComponent("migrations", schema, modules);
-    
-    // Initialize migrations client like example.ts
-    const migrations = new Migrations(components.migrations);
-    
-    // Define test migrations
-    const testMigration = migrations.define({
-      table: "myTable",
-      migrateOne: async (_ctx, doc) => {
-        if (doc.optionalField === undefined) {
-          return { optionalField: "default" };
-        }
-      },
-    });
-
+    t.registerComponent("migrations", componentSchema, componentModules);
     await t.mutation(internal.example.seed, { count: 10 });
-    return { t, migrations, testMigration };
+    return t;
   }
 
-  let testEnv: Awaited<ReturnType<typeof setupTest>>;
+  let testEnv: {
+    t: Awaited<ReturnType<typeof setupTest>>;
+    migrations: Migrations;
+    testMigration: ReturnType<typeof Migrations.prototype.define>;
+  };
 
   beforeEach(async () => {
     vi.useFakeTimers();
-    testEnv = await setupTest();
+    const t = await setupTest();
+    const migrations = new Migrations(components.migrations);
+    const testMigration = migrations.define({
+      table: "myTable",
+      migrateOne: async () => ({ optionalField: "default" })
+    });
+    testEnv = { t, migrations, testMigration };
   });
 
   afterEach(async () => {
