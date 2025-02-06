@@ -300,37 +300,30 @@ export class Migrations<DataModel extends GenericDataModel> {
           return (await this._runInteractive(ctx, args)) as any;
         } else if (args.next?.length) {
           throw new Error("You can only pass next if you also provide fn");
-        }
-        const numItems = args.batchSize || defaultBatchSize;
-        if (!args.batchSize) {
-          if (args.batchSize === 0) {
-            console.warn(`Batch size is zero. Using the default: ${numItems}`);
-          }
-          console.warn(
-            "Running this from the dashboard? Here's some args to use:"
-          );
-          console.warn({
-            "Dry run": '{ "dryRun": true, "cursor": null }',
-            "For real": '{ "fn": "path/to/migrations:yourFnName" }',
-          });
-        }
-        if (
-          (args.cursor === undefined || args.cursor === "") &&
-          args.dryRun === undefined
+        } else if (
+          args.cursor === undefined ||
+          args.cursor === "" ||
+          args.dryRun === undefined ||
+          args.batchSize === 0
         ) {
           console.warn(
-            "No cursor or dryRun specified - doing a dry run on the next batch" +
-              "Running this from the CLI or dashboard? Here's some args to use:"
+            "Running this from the CLI or dashboard? Here's some args to use:"
           );
           console.warn({
             "Dry run": '{ "dryRun": true, "cursor": null }',
             "For real": '{ "fn": "path/to/migrations:yourFnName" }',
           });
-          args.cursor = null;
-          args.dryRun = true;
         }
-        if (args.cursor === "" || args.cursor === undefined) {
-          if (args.dryRun) {
+
+        const numItems = args.batchSize || defaultBatchSize;
+        if (args.cursor === undefined || args.cursor === "") {
+          if (args.dryRun === undefined) {
+            console.warn(
+              "No cursor or dryRun specified - doing a dry run on the next batch."
+            );
+            args.cursor = null;
+            args.dryRun = true;
+          } else if (args.dryRun) {
             console.warn("Setting cursor to null for dry run");
             args.cursor = null;
           } else {
