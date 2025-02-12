@@ -12,6 +12,7 @@
   "dependencies": {
     "@convex-dev/migrations": "file:..",
     "convex": "file:../node_modules/convex",
+    "convex-test": "file:../node_modules/convex-test",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -27,6 +28,7 @@
     "globals": "^15.9.0",
     "typescript": "^5.5.0",
     "typescript-eslint": "^8.0.1",
-    "vite": "^5.4.1"
+    "vite": "^5.4.1",
+    "vitest": "file:../node_modules/vitest"
   }
 }
