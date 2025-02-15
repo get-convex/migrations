@@ -24,6 +24,7 @@ export const doneMigration = mutation({
 
 const testApi: ApiFromModules<{
   fns: { doneMigration: typeof doneMigration };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }>["fns"] = anyApi["lib.test"] as any;
 
 describe("migrate", () => {
