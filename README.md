@@ -159,7 +159,7 @@ export const runIt = migrations.runner(internal.migrations.setDefaultValue);
 To run it from the CLI:
 
 ```sh
-npx convex run migrations:runIt
+npx convex run convex/migrations.ts:runIt # or shorthand: migrations:runIt
 ```
 
 **Note**: pass the `--prod` argument to run this and below commands in production
@@ -225,7 +225,7 @@ export const runAll = migrations.runner([
 Then just run:
 
 ```sh
-npx convex run migrations:runAll
+npx convex run migrations:runAll # migrations:runAll is equivalent to convex/migrations.ts:runAll on the CLI
 ```
 
 With the `runner` functions, you can pass a "next" argument to run
@@ -336,7 +336,7 @@ As part of your build and deploy command, you can chain the corresponding
 `npx convex run` command, such as:
 
 ```sh
-npx convex deploy --cmd 'npm run build' && npx convex run migrations:runAll --prod
+npx convex deploy --cmd 'npm run build' && npx convex run convex/migrations.ts:runAll --prod
 ```
 
 ## Configuration options
