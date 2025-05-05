@@ -20,5 +20,5 @@
     "skipLibCheck": true
   },
   "exclude": ["vitest.config.ts"],
-  "include": ["./src/**/*", "./example/**/*"]
+  "include": ["./src/**/*"]
 }
