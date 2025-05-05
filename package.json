@@ -20,8 +20,11 @@
     "build:cjs": "tsc --project ./commonjs.json && echo '{\\n  \"type\": \"commonjs\"\\n}' > dist/commonjs/package.json",
     "dev": "cd example; npm run dev",
     "typecheck": "tsc --noEmit",
+    "alpha": "rm -rf dist && npm run build && npm run test && npm run typecheck && npm version prerelease --preid alpha && npm publish --tag alpha && git push --tags",
+    "release": "rm -rf dist && npm run build && npm run test && npm run typecheck && npm version patch && npm publish && git push --tags",
     "prepare": "npm run build",
-    "test": "vitest"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "files": [
     "dist",
