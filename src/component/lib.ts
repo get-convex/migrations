@@ -103,16 +103,18 @@ export const migrate = mutation({
 
     try {
       // Step 2: Run the migration.
-      const result = await ctx.runMutation(
-        fnHandle as MigrationFunctionHandle,
-        {
-          cursor: state.cursor,
-          batchSize,
-          dryRun,
-        }
-      );
-      updateState(result);
-      state.error = undefined;
+      if (!state.isDone) {
+        const result = await ctx.runMutation(
+          fnHandle as MigrationFunctionHandle,
+          {
+            cursor: state.cursor,
+            batchSize,
+            dryRun,
+          }
+        );
+        updateState(result);
+        state.error = undefined;
+      }
 
       // Step 3: Schedule the next batch or next migration.
       if (!state.isDone) {

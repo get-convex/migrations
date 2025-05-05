@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   migrations: defineTable({
-    name: v.string(),
+    name: v.string(), // Defaults to the function name.
     cursor: v.union(v.string(), v.null()),
     isDone: v.boolean(),
     workerId: v.optional(v.id("_scheduled_functions")),

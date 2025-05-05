@@ -3,17 +3,12 @@ import { ApiFromModules, anyApi, createFunctionHandle } from "convex/server";
 import { convexTest } from "convex-test";
 import { modules } from "./setup.test.js";
 import { api } from "./_generated/api.js";
-import {
-  DEFAULT_BATCH_SIZE,
-  MigrationArgs,
-  MigrationResult,
-  Migrations,
-} from "../client/index.js";
+import { MigrationArgs, MigrationResult } from "../client/index.js";
 import { mutation } from "./_generated/server.js";
 import schema from "./schema.js";
 
 export const doneMigration = mutation({
-  handler: async (ctx, args: MigrationArgs): Promise<MigrationResult> => {
+  handler: async (_, _args: MigrationArgs): Promise<MigrationResult> => {
     return {
       isDone: true,
       continueCursor: "foo",
@@ -85,5 +80,28 @@ describe("cancel", () => {
     await expect(
       t.mutation(api.lib.cancel, { name: "nonexistent" })
     ).rejects.toThrow();
+  });
+});
+
+describe("It doesn't attempt a migration if it's already done", () => {
+  test("runs a simple migration in one go", async () => {
+    const t = convexTest(schema, modules);
+    const fnHandle = "function://invalid";
+    await t.run((ctx) =>
+      ctx.db.insert("migrations", {
+        name: "testMigration",
+        latestStart: Date.now(),
+        isDone: true,
+        cursor: "foo",
+        processed: 1,
+      })
+    );
+    // It'd throw if it tried to run the migration.
+    const result = await t.mutation(api.lib.migrate, {
+      name: "testMigration",
+      fnHandle: fnHandle,
+      dryRun: false,
+    });
+    expect(result.isDone).toBe(true);
   });
 });
