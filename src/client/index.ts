@@ -335,10 +335,26 @@ export class Migrations<DataModel extends GenericDataModel> {
 
         const q = ctx.db.query(table);
         const range = customRange ? customRange(q) : q;
-        const { continueCursor, page, isDone } = await range.paginate({
-          cursor: args.cursor,
-          numItems,
-        });
+        let continueCursor: string;
+        let page: DocumentByName<DataModel, TableName>[];
+        let isDone: boolean;
+        try {
+          ({ continueCursor, page, isDone } = await range.paginate({
+            cursor: args.cursor,
+            numItems,
+          }));
+        } catch (e) {
+          console.error(
+            "Error paginating. This can happen if the migration " +
+              "was initially run on a different table, different custom range, " +
+              "or you upgraded convex-helpers with in-progress migrations. " +
+              "This creates an invalid pagination cursor. " +
+              "Run all migrations to completion on the old cursor, or re-run " +
+              "them explicitly with the cursor set to null. " +
+              "If the problem persists, contact support@convex.dev"
+          );
+          throw e;
+        }
         async function doOne(doc: DocumentByName<DataModel, TableName>) {
           try {
             const next = await migrateOne(
@@ -552,9 +568,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       typeof migration === "string"
         ? this.prefixedName(migration)
         : getFunctionName(migration);
-    return ctx.runMutation(this.component.lib.cancel, {
-      name,
-    });
+    return ctx.runMutation(this.component.lib.cancel, { name });
   }
 
   /**
