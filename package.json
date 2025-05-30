@@ -7,7 +7,7 @@
     "email": "support@convex.dev",
     "url": "https://github.com/get-convex/migrations/issues"
   },
-  "version": "0.2.7",
+  "version": "0.2.8",
   "license": "Apache-2.0",
   "keywords": [
     "convex",
@@ -53,7 +53,7 @@
     }
   },
   "peerDependencies": {
-    "convex": "~1.16.5 || >=1.17.0 <1.25.0"
+    "convex": "~1.16.5 || >=1.17.0 <1.35.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
