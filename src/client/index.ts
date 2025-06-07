@@ -384,15 +384,22 @@ export class Migrations<DataModel extends GenericDataModel> {
         if (args.dryRun) {
           // Throwing an error rolls back the transaction
           let anyChanges = false;
+          let printedChanges = 0;
           for (const before of page) {
             const after = await ctx.db.get(before._id as GenericId<TableName>);
             if (JSON.stringify(after) !== JSON.stringify(before)) {
+              anyChanges = true;
+              printedChanges++;
+              if (printedChanges > 10) {
+                console.debug(
+                  "DRY RUN: More than 10 changes were found in the first page. Skipping the rest."
+                );
+                break;
+              }
               console.debug("DRY RUN: Example change", {
                 before,
                 after,
               });
-              anyChanges = true;
-              break;
             }
           }
           if (!anyChanges) {
