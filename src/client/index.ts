@@ -188,15 +188,18 @@ export class Migrations<DataModel extends GenericDataModel> {
         ),
       );
     }
+    // Handle reset option: reset sets cursor to null for all migrations
+    const cursor = args.reset ? null : args.cursor;
     let status: MigrationStatus;
     try {
       status = await ctx.runMutation(this.component.lib.migrate, {
         name,
         fnHandle,
-        cursor: args.cursor,
+        cursor,
         batchSize: args.batchSize,
         next,
         dryRun: args.dryRun ?? false,
+        reset: args.reset,
       });
     } catch (e) {
       if (
@@ -234,8 +237,8 @@ export class Migrations<DataModel extends GenericDataModel> {
    * # Start or resume a migration. No-ops if it's already done:
    * npx convex run migrations:run '{"fn": "migrations:foo"}'
    *
-   * # Restart a migration from a cursor (null is from the beginning):
-   * npx convex run migrations:run '{"fn": "migrations:foo", "cursor": null }'
+   * # Restart a migration from the beginning (also resets next migrations):
+   * npx convex run migrations:run '{"fn": "migrations:foo", "reset": true }'
    *
    * # Dry run - runs one batch but doesn't schedule or commit changes.
    * # so you can see what it would do without committing the transaction.
@@ -313,7 +316,7 @@ export class Migrations<DataModel extends GenericDataModel> {
             "Running this from the CLI or dashboard? Here's some args to use:",
           );
           console.warn({
-            "Dry run": '{ "dryRun": true, "cursor": null }',
+            "Dry run": '{ "dryRun": true, "reset": true }',
             "For real": '{ "fn": "path/to/migrations:yourFnName" }',
           });
         }
@@ -460,6 +463,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param opts.cursor The cursor to start from.
    *   null: start from the beginning.
    *   undefined: start or resume from where it failed. If done, it won't restart.
+   * @param opts.reset If true, restarts the migration from the beginning.
    * @param opts.batchSize The number of documents to process in a batch.
    * @param opts.dryRun If true, it will run a batch and then throw an error.
    *   It's helpful to see what it would do without committing the transaction.
@@ -471,14 +475,16 @@ export class Migrations<DataModel extends GenericDataModel> {
       cursor?: string | null;
       batchSize?: number;
       dryRun?: boolean;
+      reset?: boolean;
     },
   ) {
     return ctx.runMutation(this.component.lib.migrate, {
       name: getFunctionName(fnRef),
       fnHandle: await createFunctionHandle(fnRef),
-      cursor: opts?.cursor,
+      cursor: opts?.reset ? null : opts?.cursor,
       batchSize: opts?.batchSize,
       dryRun: opts?.dryRun ?? false,
+      reset: opts?.reset,
     });
   }
 
