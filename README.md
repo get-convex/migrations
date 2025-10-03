@@ -195,9 +195,11 @@ await migrations.runOne(ctx, internal.example.setDefaultValue);
 
 - If it is already running it will refuse to start another duplicate worker.
 - If it had previously failed on some batch, it will continue from that batch
-  unless you manually specify `cursor`.
+  unless you manually specify `cursor` or `reset`.
 - If you provide an explicit `cursor` (`null` means to start at the beginning),
   it will start from there.
+- If you pass `reset: true`, it will restart the migration from the beginning
+  for all migrations in the group (including any `next` migrations).
 - If you pass `true` for `dryRun` then it will run one batch and then throw,
   so no changes are committed, and you can see what it would have done.
   See [below](#test-a-migration-with-dryrun)
@@ -277,7 +279,15 @@ npx convex run migrations:runIt '{dryRun: true}'
 
 ### Restart a migration
 
-Pass `null` for the `cursor` to force a migration to start over.
+Pass `reset: true` to force a migration to start over from the beginning.
+This will reset the cursor for all migrations in the group.
+
+```sh
+npx convex run migrations:runIt '{reset: true}'
+```
+
+Alternatively, you can pass `null` for the `cursor` to restart just the
+current migration:
 
 ```sh
 npx convex run migrations:runIt '{cursor: null}'
