@@ -36,6 +36,7 @@ const runMigrationArgs = {
     )
   ),
   dryRun: v.boolean(),
+  reset: v.optional(v.boolean()),
 };
 
 export const migrate = mutation({
@@ -139,7 +140,7 @@ export const migrate = mutation({
             .query("migrations")
             .withIndex("name", (q) => q.eq("name", next[i]!.name))
             .unique();
-          if (!doc || !doc.isDone) {
+          if (args.reset || !doc || !doc.isDone) {
             const [nextFn, ...rest] = next.slice(i);
             if (nextFn) {
               await ctx.scheduler.runAfter(0, api.lib.migrate, {
@@ -148,6 +149,7 @@ export const migrate = mutation({
                 next: rest,
                 batchSize,
                 dryRun,
+                ...(args.reset ? { reset: true, cursor: null } : {}),
               });
             }
             break;
