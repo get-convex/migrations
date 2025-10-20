@@ -1,4 +1,4 @@
-import { Infer, ObjectType, v } from "convex/values";
+import { type Infer, type ObjectType, v } from "convex/values";
 
 export const migrationArgs = {
   fn: v.optional(v.string()),

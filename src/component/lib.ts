@@ -1,14 +1,19 @@
-import { ConvexError, ObjectType, v } from "convex/values";
-import { mutation, MutationCtx, query, QueryCtx } from "./_generated/server.js";
-import { FunctionHandle, WithoutSystemFields } from "convex/server";
+import type { FunctionHandle, WithoutSystemFields } from "convex/server";
+import { ConvexError, type ObjectType, v } from "convex/values";
 import {
-  MigrationArgs,
-  MigrationResult,
-  MigrationStatus,
+  type MigrationArgs,
+  type MigrationResult,
+  type MigrationStatus,
   migrationStatus,
 } from "../shared.js";
 import { api } from "./_generated/api.js";
-import { Doc } from "./_generated/dataModel.js";
+import type { Doc } from "./_generated/dataModel.js";
+import {
+  mutation,
+  type MutationCtx,
+  query,
+  type QueryCtx,
+} from "./_generated/server.js";
 
 export type MigrationFunctionHandle = FunctionHandle<
   "mutation",

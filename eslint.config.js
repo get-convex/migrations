@@ -8,6 +8,7 @@ export default [
     ignores: [
       "dist/**",
       "eslint.config.js",
+      "vitest.config.ts",
       "**/_generated/",
       "node10stubs.mjs",
     ],
@@ -19,7 +20,7 @@ export default [
 
       parserOptions: {
         project: true,
-        tsconfigRootDir: ".",
+        tsconfigRootDir: import.meta.dirname,
       },
     },
   },

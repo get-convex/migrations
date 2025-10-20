@@ -95,6 +95,7 @@ export type Mounts = {
         fnHandle: string;
         name: string;
         next?: Array<{ fnHandle: string; name: string }>;
+        reset?: boolean;
       },
       {
         batchSize?: number;

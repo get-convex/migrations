@@ -2,8 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    globals: true,
-    environment: "node",
+    environment: "edge-runtime",
     typecheck: {
       tsconfig: "./tsconfig.test.json",
     },

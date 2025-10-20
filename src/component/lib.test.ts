@@ -1,9 +1,13 @@
 import { describe, test, expect } from "vitest";
-import { ApiFromModules, anyApi, createFunctionHandle } from "convex/server";
+import {
+  type ApiFromModules,
+  anyApi,
+  createFunctionHandle,
+} from "convex/server";
 import { convexTest } from "convex-test";
 import { modules } from "./setup.test.js";
 import { api } from "./_generated/api.js";
-import { MigrationArgs, MigrationResult } from "../client/index.js";
+import type { MigrationArgs, MigrationResult } from "../client/index.js";
 import { mutation } from "./_generated/server.js";
 import schema from "./schema.js";
 

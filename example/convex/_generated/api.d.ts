@@ -107,6 +107,7 @@ export declare const components: {
           fnHandle: string;
           name: string;
           next?: Array<{ fnHandle: string; name: string }>;
+          reset?: boolean;
         },
         {
           batchSize?: number;

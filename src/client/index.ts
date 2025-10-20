@@ -1,31 +1,31 @@
 import {
   createFunctionHandle,
-  DocumentByName,
-  Expand,
-  FunctionReference,
-  GenericDataModel,
-  GenericMutationCtx,
-  GenericQueryCtx,
+  type DocumentByName,
+  type Expand,
+  type FunctionReference,
+  type GenericDataModel,
+  type GenericMutationCtx,
+  type GenericQueryCtx,
   getFunctionName,
   internalMutationGeneric,
   makeFunctionReference,
-  MutationBuilder,
-  NamedTableInfo,
-  OrderedQuery,
-  QueryInitializer,
-  RegisteredMutation,
-  TableNamesInDataModel,
+  type MutationBuilder,
+  type NamedTableInfo,
+  type OrderedQuery,
+  type QueryInitializer,
+  type RegisteredMutation,
+  type TableNamesInDataModel,
 } from "convex/server";
 import {
-  MigrationArgs,
+  type MigrationArgs,
   migrationArgs,
-  MigrationResult,
-  MigrationStatus,
+  type MigrationResult,
+  type MigrationStatus,
 } from "../shared.js";
 export type { MigrationArgs, MigrationResult, MigrationStatus };
 import { api } from "../component/_generated/api.js"; // the component's public api
 
-import { ConvexError, GenericId } from "convex/values";
+import { ConvexError, type GenericId } from "convex/values";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
