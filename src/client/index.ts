@@ -1,7 +1,6 @@
 import {
   createFunctionHandle,
   type DocumentByName,
-  type Expand,
   type FunctionReference,
   type GenericDataModel,
   type GenericMutationCtx,
