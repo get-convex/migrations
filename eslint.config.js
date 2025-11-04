@@ -39,12 +39,21 @@ export default [
     },
     rules: {
       "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-explicit-any": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
+        },
+      ],
+      "@typescript-eslint/no-unused-expressions": [
+        "error",
+        {
+          allowShortCircuit: true,
+          allowTernary: true,
+          allowTaggedTemplates: true,
         },
       ],
     },
@@ -66,6 +75,7 @@ export default [
         "warn",
         { allowConstantExport: true },
       ],
+      "@typescript-eslint/no-explicit-any": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": [
         "warn",
