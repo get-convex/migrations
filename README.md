@@ -17,42 +17,44 @@ export const setDefaultValue = migrations.define({
 });
 ```
 
-You can then run it programmatically or from the CLI. See [below](#running-migrations-one-at-a-time).
+You can then run it programmatically or from the CLI. See
+[below](#running-migrations-one-at-a-time).
 
 Migrations allow you to define functions that run on all documents in a table
 (or a specified subset). They run in batches asynchronously (online migration).
 
-The component tracks the migrations state so it can avoid running twice,
-pick up where it left off (in the case of a bug or failure along the way),
-and expose the migration state in realtime via Convex queries.
+The component tracks the migrations state so it can avoid running twice, pick up
+where it left off (in the case of a bug or failure along the way), and expose
+the migration state in realtime via Convex queries.
 
 See the [migration primer post](https://stack.convex.dev/intro-to-migrations)
-for a conceptual overview of online vs. offline migrations.
-If your migration is trivial and you're moving fast, also check out
+for a conceptual overview of online vs. offline migrations. If your migration is
+trivial and you're moving fast, also check out
 [lightweight migrations in the dashboard](https://stack.convex.dev/lightweight-zero-downtime-migrations).
 
 Typical steps for doing a migration:
 
 1. Modify your schema to allow old and new values. Typically this is adding a
-   new optional field or marking a field as optional so it can be deleted.
-   As part of this, update your code to handle both versions.
+   new optional field or marking a field as optional so it can be deleted. As
+   part of this, update your code to handle both versions.
 2. Define a migration to change the data to the new schema.
 3. Push the migration and schema changes.
 4. Run the migration(s) to completion.
-5. Modify your schema and code to assume the new value.
-   Pushing this change will only succeed once all the data matches the new schema.
-   This is the default behavior for Convex, unless you disable schema validation.
+5. Modify your schema and code to assume the new value. Pushing this change will
+   only succeed once all the data matches the new schema. This is the default
+   behavior for Convex, unless you disable schema validation.
 
 See [this Stack post](https://stack.convex.dev/migrating-data-with-mutations)
 for walkthroughs of common use cases.
 
 ## Pre-requisite: Convex
 
-You'll need an existing Convex project to use the component.
-Convex is a hosted backend platform, including a database, serverless functions,
-and a ton more you can learn about [here](https://docs.convex.dev/get-started).
+You'll need an existing Convex project to use the component. Convex is a hosted
+backend platform, including a database, serverless functions, and a ton more you
+can learn about [here](https://docs.convex.dev/get-started).
 
-Run `npm create convex` or follow any of the [quickstarts](https://docs.convex.dev/home) to set one up.
+Run `npm create convex` or follow any of the
+[quickstarts](https://docs.convex.dev/home) to set one up.
 
 ## Installation
 
@@ -62,7 +64,8 @@ Install the component package:
 npm install @convex-dev/migrations
 ```
 
-Create a `convex.config.ts` file in your app's `convex/` folder and install the component by calling `use`:
+Create a `convex.config.ts` file in your app's `convex/` folder and install the
+component by calling `use`:
 
 ```ts
 // convex/convex.config.ts
@@ -77,11 +80,11 @@ export default app;
 
 ## Initialization
 
-Examples below are assuming the code is in `convex/migrations.ts`.
-This is not a requirement.
-If you want to use a different file, make sure to change the examples below from
-`internal.migrations.*` to your new file name, like `internal.myFolder.myMigrationsFile.*`
-or CLI arguments like `migrations:*` to `myFolder/myMigrationsFile:*`.
+Examples below are assuming the code is in `convex/migrations.ts`. This is not a
+requirement. If you want to use a different file, make sure to change the
+examples below from `internal.migrations.*` to your new file name, like
+`internal.myFolder.myMigrationsFile.*` or CLI arguments like `migrations:*` to
+`myFolder/myMigrationsFile:*`.
 
 ```ts
 import { Migrations } from "@convex-dev/migrations";
@@ -92,10 +95,12 @@ export const migrations = new Migrations<DataModel>(components.migrations);
 export const run = migrations.runner();
 ```
 
-The type parameter `DataModel` is optional. It provides type safety for migration definitions.
-As always, database operations in migrations will abide by your schema definition at runtime.
-**Note**: if you use [custom functions](https://stack.convex.dev/custom-functions)
-to override `internalMutation`, see [below](#override-the-internalmutation-to-apply-custom-db-behavior).
+The type parameter `DataModel` is optional. It provides type safety for
+migration definitions. As always, database operations in migrations will abide
+by your schema definition at runtime. **Note**: if you use
+[custom functions](https://stack.convex.dev/custom-functions) to override
+`internalMutation`, see
+[below](#override-the-internalmutation-to-apply-custom-db-behavior).
 
 ## Define migrations
 
@@ -116,8 +121,8 @@ export const setDefaultValue = migrations.define({
 
 ### Shorthand syntax
 
-Since the most common migration involves patching each document,
-if you return an object, it will be applied as a patch automatically.
+Since the most common migration involves patching each document, if you return
+an object, it will be applied as a patch automatically.
 
 ```ts
 export const clearField = migrations.define({
@@ -162,20 +167,22 @@ To run it from the CLI:
 npx convex run convex/migrations.ts:runIt # or shorthand: migrations:runIt
 ```
 
-**Note**: pass the `--prod` argument to run this and below commands in production
+**Note**: pass the `--prod` argument to run this and below commands in
+production
 
 Running it from the dashboard:
 
 ![Dashboard screenshot](./dashboard_screenshot.png)
 
-You can also expose a general-purpose function to run your migrations.
-For example, in `convex/migrations.ts` add:
+You can also expose a general-purpose function to run your migrations. For
+example, in `convex/migrations.ts` add:
 
 ```ts
 export const run = migrations.runner();
 ```
 
-Then run it with the [function name](https://docs.convex.dev/functions/query-functions#query-names):
+Then run it with the
+[function name](https://docs.convex.dev/functions/query-functions#query-names):
 
 ```sh
 npx convex run migrations:run '{fn: "migrations:setDefaultValue"}'
@@ -198,10 +205,10 @@ await migrations.runOne(ctx, internal.example.setDefaultValue);
   unless you manually specify `cursor`.
 - If you provide an explicit `cursor` (`null` means to start at the beginning),
   it will start from there.
-- If you pass `true` for `dryRun` then it will run one batch and then throw,
-  so no changes are committed, and you can see what it would have done.
-  See [below](#test-a-migration-with-dryrun)
-  This is good for validating it does what you expect.
+- If you pass `true` for `dryRun` then it will run one batch and then throw, so
+  no changes are committed, and you can see what it would have done. See
+  [below](#test-a-migration-with-dryrun) This is good for validating it does
+  what you expect.
 
 ## Running migrations serially
 
@@ -228,8 +235,8 @@ Then just run:
 npx convex run migrations:runAll # migrations:runAll is equivalent to convex/migrations.ts:runAll on the CLI
 ```
 
-With the `runner` functions, you can pass a "next" argument to run
-a series of migrations after the first:
+With the `runner` functions, you can pass a "next" argument to run a series of
+migrations after the first:
 
 ```sh
 npx convex run migrations:runIt '{next:["migrations:clearField"]}'
@@ -252,15 +259,14 @@ await migrations.runSerially(ctx, [
 - If a migration is already in progress when attempted, it will no-op.
 - If a migration had already completed, it will skip it.
 - If a migration had partial progress, it will resume from where it left off.
-- If a migration fails or is canceled, it will not continue on,
-  in case you had some dependencies between the migrations.
-  Call the series again to retry.
+- If a migration fails or is canceled, it will not continue on, in case you had
+  some dependencies between the migrations. Call the series again to retry.
 
 Note: if you start multiple serial migrations, the behavior is:
 
 - If they don't overlap on functions, they will happily run in parallel.
-- If they have a function in common and one completes before the other
-  attempts it, the second will just skip it.
+- If they have a function in common and one completes before the other attempts
+  it, the second will just skip it.
 - If they have a function in common and one is in progress, the second will
   no-op and not run any further migrations in its series.
 
@@ -268,8 +274,8 @@ Note: if you start multiple serial migrations, the behavior is:
 
 ### Test a migration with dryRun
 
-Before running a migration that may irreversibly change data, you can validate
-a batch by passing `dryRun` to any `runner` or `runOne` command:
+Before running a migration that may irreversibly change data, you can validate a
+batch by passing `dryRun` to any `runner` or `runOne` command:
 
 ```sh
 npx convex run migrations:runIt '{dryRun: true}'
@@ -289,7 +295,8 @@ from a known good point as you iterate on the code.
 
 ### Stop a migration
 
-You can stop a migration from the CLI or dashboard, calling the component API directly:
+You can stop a migration from the CLI or dashboard, calling the component API
+directly:
 
 ```sh
 npx convex run --component migrations lib:cancel '{name: "migrations:myMigration"}'
@@ -303,14 +310,14 @@ await migrations.cancel(ctx, internal.migrations.myMigration);
 
 ### Get the status of migrations
 
-To see the live status of migrations as they progress, you can query it via the CLI:
+To see the live status of migrations as they progress, you can query it via the
+CLI:
 
 ```sh
 npx convex run --component migrations lib:getStatus --watch
 ```
 
-The `--watch` will live-update the status as it changes.
-Or programmatically:
+The `--watch` will live-update the status as it changes. Or programmatically:
 
 ```ts
 const status: MigrationStatus[] = await migrations.getStatus(ctx, {
@@ -343,10 +350,12 @@ npx convex deploy --cmd 'npm run build' && npx convex run convex/migrations.ts:r
 
 ### Override the internalMutation to apply custom DB behavior
 
-You can customize which `internalMutation` implementation the underly migration should use.
+You can customize which `internalMutation` implementation the underly migration
+should use.
 
-This might be important if you use [custom functions](https://stack.convex.dev/custom-functions)
-to intercept database writes to apply validation or
+This might be important if you use
+[custom functions](https://stack.convex.dev/custom-functions) to intercept
+database writes to apply validation or
 [trigger operations on changes](https://stack.convex.dev/triggers).
 
 Assuming you define your own `internalMutation` in `convex/functions.ts`:
@@ -361,15 +370,14 @@ export const migrations = new Migrations(components.migrations, {
 });
 ```
 
-See [this article](https://stack.convex.dev/migrating-data-with-mutations)
-for more information on usage and advanced patterns.
+See [this article](https://stack.convex.dev/migrating-data-with-mutations) for
+more information on usage and advanced patterns.
 
 ### Custom batch size
 
 The component will fetch your data in batches of 100, and call your function on
-each document in a batch.
-If you want to change the batch size, you can specify it.
-This can be useful if your documents are large, to avoid running over the
+each document in a batch. If you want to change the batch size, you can specify
+it. This can be useful if your documents are large, to avoid running over the
 [transaction limit](https://docs.convex.dev/production/state/limits#transactions),
 or if your documents are updating frequently and you are seeing OCC conflicts
 while migrating.
@@ -393,12 +401,11 @@ await migrations.runOne(ctx, internal.migrations.clearField, {
 ### Parallelizing batches
 
 Each batch is processed serially, but within a batch you can have each
-`migrateOne` call run in parallel if you pass `parallelize: true`.
-If you do so, ensure your callback doesn't assume that each call is isolated.
-For instance, if each call reads then updates the same counter, then multiple
-functions in the same batch could read the same counter value, and get off by
-one.
-As a result, migrations are run serially by default.
+`migrateOne` call run in parallel if you pass `parallelize: true`. If you do so,
+ensure your callback doesn't assume that each call is isolated. For instance, if
+each call reads then updates the same counter, then multiple functions in the
+same batch could read the same counter value, and get off by one. As a result,
+migrations are run serially by default.
 
 ```ts
 export const clearField = migrations.define({
@@ -411,8 +418,9 @@ export const clearField = migrations.define({
 ### Shorthand running syntax:
 
 For those that don't want to type out `migrations:myNewMigration` every time
-they run a migration from the CLI or dashboard, especially if you define your migrations
-elsewhere like `ops/db/migrations:myNewMigration`, you can configure a prefix:
+they run a migration from the CLI or dashboard, especially if you define your
+migrations elsewhere like `ops/db/migrations:myNewMigration`, you can configure
+a prefix:
 
 ```ts
 export const migrations = new Migrations(components.migrations, {
