@@ -1,6 +1,6 @@
 /* eslint-disable */
 /**
- * Generated `api` utility.
+ * Generated `ComponentApi` utility.
  *
  * THIS CODE IS AUTOMATICALLY GENERATED.
  *
@@ -8,46 +8,19 @@
  * @module
  */
 
-import type * as example from "../example.js";
-
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
-
-declare const fullApi: ApiFromModules<{
-  example: typeof example;
-}>;
+import type { FunctionReference } from "convex/server";
 
 /**
- * A utility for referencing Convex functions in your app's public API.
+ * A utility for referencing a Convex component's API.
  *
  * Usage:
  * ```js
- * const myFunctionReference = api.myModule.myFunction;
+ * export type MyComponentApi = ComponentApi;
  * ```
  */
-export declare const api: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "public">
->;
 
-/**
- * A utility for referencing Convex functions in your app's internal API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = internal.myModule.myFunction;
- * ```
- */
-export declare const internal: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "internal">
->;
-
-export declare const components: {
-  migrations: {
+export type ComponentApi<Name extends string | undefined = string | undefined> =
+  {
     lib: {
       cancel: FunctionReference<
         "mutation",
@@ -64,7 +37,8 @@ export declare const components: {
           next?: Array<string>;
           processed: number;
           state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
-        }
+        },
+        Name
       >;
       cancelAll: FunctionReference<
         "mutation",
@@ -81,13 +55,15 @@ export declare const components: {
           next?: Array<string>;
           processed: number;
           state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
-        }>
+        }>,
+        Name
       >;
       clearAll: FunctionReference<
         "mutation",
         "internal",
         { before?: number },
-        null
+        null,
+        Name
       >;
       getStatus: FunctionReference<
         "query",
@@ -104,7 +80,8 @@ export declare const components: {
           next?: Array<string>;
           processed: number;
           state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
-        }>
+        }>,
+        Name
       >;
       migrate: FunctionReference<
         "mutation",
@@ -128,8 +105,8 @@ export declare const components: {
           next?: Array<string>;
           processed: number;
           state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
-        }
+        },
+        Name
       >;
     };
   };
-};

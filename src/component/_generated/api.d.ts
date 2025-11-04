@@ -15,6 +15,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+
 /**
  * A utility for referencing Convex functions in your app's API.
  *
@@ -26,103 +27,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   lib: typeof lib;
 }>;
-export type Mounts = {
-  lib: {
-    cancel: FunctionReference<
-      "mutation",
-      "public",
-      { name: string },
-      {
-        batchSize?: number;
-        cursor?: string | null;
-        error?: string;
-        isDone: boolean;
-        latestEnd?: number;
-        latestStart: number;
-        name: string;
-        next?: Array<string>;
-        processed: number;
-        state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
-      }
-    >;
-    cancelAll: FunctionReference<
-      "mutation",
-      "public",
-      { sinceTs?: number },
-      Array<{
-        batchSize?: number;
-        cursor?: string | null;
-        error?: string;
-        isDone: boolean;
-        latestEnd?: number;
-        latestStart: number;
-        name: string;
-        next?: Array<string>;
-        processed: number;
-        state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
-      }>
-    >;
-    clearAll: FunctionReference<
-      "mutation",
-      "public",
-      { before?: number },
-      null
-    >;
-    getStatus: FunctionReference<
-      "query",
-      "public",
-      { limit?: number; names?: Array<string> },
-      Array<{
-        batchSize?: number;
-        cursor?: string | null;
-        error?: string;
-        isDone: boolean;
-        latestEnd?: number;
-        latestStart: number;
-        name: string;
-        next?: Array<string>;
-        processed: number;
-        state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
-      }>
-    >;
-    migrate: FunctionReference<
-      "mutation",
-      "public",
-      {
-        batchSize?: number;
-        cursor?: string | null;
-        dryRun: boolean;
-        fnHandle: string;
-        name: string;
-        next?: Array<{ fnHandle: string; name: string }>;
-        reset?: boolean;
-      },
-      {
-        batchSize?: number;
-        cursor?: string | null;
-        error?: string;
-        isDone: boolean;
-        latestEnd?: number;
-        latestStart: number;
-        name: string;
-        next?: Array<string>;
-        processed: number;
-        state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
-      }
-    >;
-  };
-};
-// For now fullApiWithMounts is only fullApi which provides
-// jump-to-definition in component client code.
-// Use Mounts for the same type without the inference.
-declare const fullApiWithMounts: typeof fullApi;
 
 export declare const api: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "internal">
 >;
 

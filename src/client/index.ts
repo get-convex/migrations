@@ -23,9 +23,9 @@ import {
   type MigrationStatus,
 } from "../shared.js";
 export type { MigrationArgs, MigrationResult, MigrationStatus };
-import { api } from "../component/_generated/api.js"; // the component's public api
 
 import { ConvexError, type GenericId } from "convex/values";
+import type { ComponentApi } from "../component/_generated/component.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
@@ -62,7 +62,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param options - Configure options and set the internalMutation to use.
    */
   constructor(
-    public component: UseApi<typeof api>,
+    public component: ComponentApi,
     public options?: {
       /**
        * Uses the internal mutation to run the migration.
@@ -613,33 +613,6 @@ type RunQueryCtx = {
 type RunMutationCtx = {
   runMutation: GenericMutationCtx<GenericDataModel>["runMutation"];
 };
-
-export type OpaqueIds<T> =
-  T extends GenericId<infer _T>
-    ? string
-    : T extends (infer U)[]
-      ? OpaqueIds<U>[]
-      : T extends object
-        ? { [K in keyof T]: OpaqueIds<T[K]> }
-        : T;
-
-export type UseApi<API> = Expand<{
-  [mod in keyof API]: API[mod] extends FunctionReference<
-    infer FType,
-    "public",
-    infer FArgs,
-    infer FReturnType,
-    infer FComponentPath
-  >
-    ? FunctionReference<
-        FType,
-        "internal",
-        OpaqueIds<FArgs>,
-        OpaqueIds<FReturnType>,
-        FComponentPath
-      >
-    : UseApi<API[mod]>;
-}>;
 
 function logStatusAndInstructions(
   name: string,
