@@ -29,9 +29,10 @@
     "test:watch": "vitest --typecheck --clearScreen false",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:coverage": "vitest run --coverage --coverage.reporter=text",
+    "attw": "attw $(npm pack -s) --exclude-entrypoints ./convex.config --profile esm-only",
     "prepare": "npm run build",
-    "alpha": "npm run clean && npm ci && run-p test lint typecheck && npm version prerelease --preid alpha && npm publish --tag alpha && git push --tags",
-    "release": "npm run clean && npm ci && run-p test lint typecheck && npm version patch && npm publish && git push --tags",
+    "alpha": "npm run clean && npm ci && run-p test lint typecheck attw && npm version prerelease --preid alpha && npm publish --tag alpha && git push --tags",
+    "release": "npm run clean && npm ci && run-p test lint typecheck attw && npm version patch && npm publish && git push --tags",
     "version": "pbcopy <<<$npm_package_version; vim CHANGELOG.md && prettier -w CHANGELOG.md && git add CHANGELOG.md"
   },
   "files": [
@@ -57,7 +58,7 @@
     "convex": "^1.24.8"
   },
   "devDependencies": {
-    "@edge-runtime/vm": "^5.0.0",
+    "@edge-runtime/vm": "5.0.0",
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "9.37.0",
     "@types/node": "20.19.24",
