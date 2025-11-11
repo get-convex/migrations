@@ -32,8 +32,8 @@ const runMigrationArgs = {
       v.object({
         name: v.string(),
         fnHandle: v.string(),
-      })
-    )
+      }),
+    ),
   ),
   dryRun: v.boolean(),
 };
@@ -52,7 +52,7 @@ export const migrate = mutation({
         "Invalid fnHandle.\n" +
           "Do not call this from the CLI or dashboard directly.\n" +
           "Instead use the `migrations.runner` function to run migrations." +
-          "See https://www.convex.dev/components/migrations"
+          "See https://www.convex.dev/components/migrations",
       );
     }
     const state =
@@ -67,7 +67,7 @@ export const migrate = mutation({
           isDone: false,
           processed: 0,
           latestStart: Date.now(),
-        })
+        }),
       ))!;
 
     // Update the state if the cursor arg differs.
@@ -115,7 +115,7 @@ export const migrate = mutation({
             cursor: state.cursor,
             batchSize,
             dryRun,
-          }
+          },
         );
         updateState(result);
         state.error = undefined;
@@ -160,7 +160,7 @@ export const migrate = mutation({
         } else {
           console.info(
             `Migration ${args.name} is done.` +
-              (i < next.length ? ` Next: ${next[i]!.name}` : "")
+              (i < next.length ? ` Next: ${next[i]!.name}` : ""),
           );
         }
       }
@@ -191,7 +191,7 @@ export const migrate = mutation({
       // will be scheduled.
       console.debug({ args, state });
       throw new Error(
-        "Error: Dry run attempted to update state - rolling back transaction."
+        "Error: Dry run attempted to update state - rolling back transaction.",
       );
     }
     return getMigrationState(ctx, state);
@@ -219,8 +219,8 @@ export const getStatus = query({
                 latestStart: 0,
                 workerId: undefined,
                 isDone: false as const,
-              }
-          )
+              },
+          ),
         )
       : await ctx.db
           .query("migrations")
@@ -228,14 +228,16 @@ export const getStatus = query({
           .take(args.limit ?? 10);
 
     return Promise.all(
-      docs.reverse().map(async (migration) => getMigrationState(ctx, migration))
+      docs
+        .reverse()
+        .map(async (migration) => getMigrationState(ctx, migration)),
     );
   },
 });
 
 async function getMigrationState(
   ctx: QueryCtx,
-  migration: WithoutSystemFields<Doc<"migrations">>
+  migration: WithoutSystemFields<Doc<"migrations">>,
 ): Promise<MigrationStatus> {
   const worker =
     migration.workerId && (await ctx.db.system.get(migration.workerId));
@@ -281,7 +283,7 @@ export const cancel = mutation({
     const state = await cancelMigration(ctx, migration);
     if (state.state !== "canceled") {
       console.log(
-        `Did not cancel migration ${migration.name}. Status was ${state.state}`
+        `Did not cancel migration ${migration.name}. Status was ${state.state}`,
       );
     }
     return state;
@@ -311,7 +313,7 @@ export const cancelAll = mutation({
       .withIndex("isDone", (q) =>
         args.sinceTs
           ? q.eq("isDone", false).gte("_creationTime", args.sinceTs)
-          : q.eq("isDone", false)
+          : q.eq("isDone", false),
       )
       .take(100);
     if (results.length === 100) {
@@ -330,7 +332,7 @@ export const clearAll = mutation({
     const results = await ctx.db
       .query("migrations")
       .withIndex("by_creation_time", (q) =>
-        q.lte("_creationTime", args.before ?? Date.now())
+        q.lte("_creationTime", args.before ?? Date.now()),
       )
       .order("desc")
       .take(100);

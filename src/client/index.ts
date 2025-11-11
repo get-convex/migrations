@@ -1,7 +1,6 @@
 import {
   createFunctionHandle,
   type DocumentByName,
-  type Expand,
   type FunctionReference,
   type GenericDataModel,
   type GenericMutationCtx,
@@ -23,9 +22,9 @@ import {
   type MigrationStatus,
 } from "../shared.js";
 export type { MigrationArgs, MigrationResult, MigrationStatus };
-import { api } from "../component/_generated/api.js"; // the component's public api
 
 import { ConvexError, type GenericId } from "convex/values";
+import type { ComponentApi } from "../component/_generated/component.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
@@ -62,7 +61,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param options - Configure options and set the internalMutation to use.
    */
   constructor(
-    public component: UseApi<typeof api>,
+    public component: ComponentApi,
     public options?: {
       /**
        * Uses the internal mutation to run the migration.
@@ -88,7 +87,7 @@ export class Migrations<DataModel extends GenericDataModel> {
        * ```
        */
       migrationsLocationPrefix?: string;
-    }
+    },
   ) {}
 
   /**
@@ -119,13 +118,13 @@ export class Migrations<DataModel extends GenericDataModel> {
   runner(
     specificMigrationOrSeries?:
       | MigrationFunctionReference
-      | MigrationFunctionReference[]
+      | MigrationFunctionReference[],
   ) {
     return internalMutationGeneric({
       args: migrationArgs,
       handler: async (ctx, args) => {
         const [specificMigration, next] = Array.isArray(
-          specificMigrationOrSeries
+          specificMigrationOrSeries,
         )
           ? [
               specificMigrationOrSeries[0],
@@ -133,7 +132,7 @@ export class Migrations<DataModel extends GenericDataModel> {
                 specificMigrationOrSeries.slice(1).map(async (fnRef) => ({
                   name: getFunctionName(fnRef),
                   fnHandle: await createFunctionHandle(fnRef),
-                }))
+                })),
               ),
             ]
           : [specificMigrationOrSeries, undefined];
@@ -144,7 +143,7 @@ export class Migrations<DataModel extends GenericDataModel> {
           throw new Error(
             `Specify the migration: '{"fn": "migrations:foo"}'\n` +
               "Or initialize a `runner` runner specific to the migration like\n" +
-              "`export const runMyMigration = runner(internal.migrations.myMigration)`"
+              "`export const runMyMigration = runner(internal.migrations.myMigration)`",
           );
         }
         return await this._runInteractive(ctx, args, specificMigration, next);
@@ -156,19 +155,19 @@ export class Migrations<DataModel extends GenericDataModel> {
     ctx: RunMutationCtx,
     args: MigrationArgs,
     fnRef?: MigrationFunctionReference,
-    next?: { name: string; fnHandle: string }[]
+    next?: { name: string; fnHandle: string }[],
   ) {
     const name = args.fn ? this.prefixedName(args.fn) : getFunctionName(fnRef!);
     async function makeFn(fn: string) {
       try {
         return await createFunctionHandle(
-          makeFunctionReference<"mutation">(fn)
+          makeFunctionReference<"mutation">(fn),
         );
       } catch {
         throw new Error(
           `Can't find function ${fn}\n` +
             "The name should match the folder/file:method\n" +
-            "See https://docs.convex.dev/functions/query-functions#query-names"
+            "See https://docs.convex.dev/functions/query-functions#query-names",
         );
       }
     }
@@ -181,8 +180,8 @@ export class Migrations<DataModel extends GenericDataModel> {
           args.next.map(async (nextFn) => ({
             name: this.prefixedName(nextFn),
             fnHandle: await makeFn(this.prefixedName(nextFn)),
-          }))
-        )
+          })),
+        ),
       );
     }
     let status: MigrationStatus;
@@ -267,13 +266,13 @@ export class Migrations<DataModel extends GenericDataModel> {
     table: TableName;
     migrateOne: (
       ctx: GenericMutationCtx<DataModel>,
-      doc: DocumentByName<DataModel, TableName> & { _id: GenericId<TableName> }
+      doc: DocumentByName<DataModel, TableName> & { _id: GenericId<TableName> },
     ) =>
       | void
       | Partial<DocumentByName<DataModel, TableName>>
       | Promise<Partial<DocumentByName<DataModel, TableName>> | void>;
     customRange?: (
-      q: QueryInitializer<NamedTableInfo<DataModel, TableName>>
+      q: QueryInitializer<NamedTableInfo<DataModel, TableName>>,
     ) => OrderedQuery<NamedTableInfo<DataModel, TableName>>;
     batchSize?: number;
     parallelize?: boolean;
@@ -296,7 +295,7 @@ export class Migrations<DataModel extends GenericDataModel> {
           // This is a one-off execution from the CLI or dashboard.
           // While not the recommended appproach, it's helpful for one-offs and
           // compatibility with the old way of running migrations.
-          // eslint-disable-next-line  @typescript-eslint/no-explicit-any
+
           return (await this._runInteractive(ctx, args)) as any;
         } else if (args.next?.length) {
           throw new Error("You can only pass next if you also provide fn");
@@ -307,7 +306,7 @@ export class Migrations<DataModel extends GenericDataModel> {
           args.batchSize === 0
         ) {
           console.warn(
-            "Running this from the CLI or dashboard? Here's some args to use:"
+            "Running this from the CLI or dashboard? Here's some args to use:",
           );
           console.warn({
             "Dry run": '{ "dryRun": true, "cursor": null }',
@@ -319,7 +318,7 @@ export class Migrations<DataModel extends GenericDataModel> {
         if (args.cursor === undefined || args.cursor === "") {
           if (args.dryRun === undefined) {
             console.warn(
-              "No cursor or dryRun specified - doing a dry run on the next batch."
+              "No cursor or dryRun specified - doing a dry run on the next batch.",
             );
             args.cursor = null;
             args.dryRun = true;
@@ -351,7 +350,7 @@ export class Migrations<DataModel extends GenericDataModel> {
               "This creates an invalid pagination cursor. " +
               "Run all migrations to completion on the old cursor, or re-run " +
               "them explicitly with the cursor set to null. " +
-              "If the problem persists, contact support@convex.dev"
+              "If the problem persists, contact support@convex.dev",
           );
           throw e;
         }
@@ -359,7 +358,7 @@ export class Migrations<DataModel extends GenericDataModel> {
           try {
             const next = await migrateOne(
               ctx,
-              doc as { _id: GenericId<TableName> }
+              doc as { _id: GenericId<TableName> },
             );
             if (next && Object.keys(next).length > 0) {
               await ctx.db.patch(doc._id as GenericId<TableName>, next);
@@ -392,7 +391,7 @@ export class Migrations<DataModel extends GenericDataModel> {
               printedChanges++;
               if (printedChanges > 10) {
                 console.debug(
-                  "DRY RUN: More than 10 changes were found in the first page. Skipping the rest."
+                  "DRY RUN: More than 10 changes were found in the first page. Skipping the rest.",
                 );
                 break;
               }
@@ -405,7 +404,7 @@ export class Migrations<DataModel extends GenericDataModel> {
           if (!anyChanges) {
             console.debug(
               "DRY RUN: No changes were found in the first page. " +
-                `Try {"dryRun": true, "cursor": "${continueCursor}"}`
+                `Try {"dryRun": true, "cursor": "${continueCursor}"}`,
             );
           }
           throw new ConvexError({
@@ -468,7 +467,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       cursor?: string | null;
       batchSize?: number;
       dryRun?: boolean;
-    }
+    },
   ) {
     return ctx.runMutation(this.component.lib.migrate, {
       name: getFunctionName(fnRef),
@@ -521,7 +520,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       rest.map(async (fnRef) => ({
         name: getFunctionName(fnRef),
         fnHandle: await createFunctionHandle(fnRef),
-      }))
+      })),
     );
     return ctx.runMutation(this.component.lib.migrate, {
       name: getFunctionName(fnRef),
@@ -546,10 +545,10 @@ export class Migrations<DataModel extends GenericDataModel> {
     }: {
       migrations?: (string | MigrationFunctionReference)[];
       limit?: number;
-    }
+    },
   ): Promise<MigrationStatus[]> {
     const names = migrations?.map((m) =>
-      typeof m === "string" ? this.prefixedName(m) : getFunctionName(m)
+      typeof m === "string" ? this.prefixedName(m) : getFunctionName(m),
     );
     return ctx.runQuery(this.component.lib.getStatus, {
       names,
@@ -569,7 +568,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    */
   async cancel(
     ctx: RunMutationCtx,
-    migration: MigrationFunctionReference | string
+    migration: MigrationFunctionReference | string,
   ): Promise<MigrationStatus> {
     const name =
       typeof migration === "string"
@@ -614,33 +613,6 @@ type RunMutationCtx = {
   runMutation: GenericMutationCtx<GenericDataModel>["runMutation"];
 };
 
-export type OpaqueIds<T> =
-  T extends GenericId<infer _T>
-    ? string
-    : T extends (infer U)[]
-      ? OpaqueIds<U>[]
-      : T extends object
-        ? { [K in keyof T]: OpaqueIds<T[K]> }
-        : T;
-
-export type UseApi<API> = Expand<{
-  [mod in keyof API]: API[mod] extends FunctionReference<
-    infer FType,
-    "public",
-    infer FArgs,
-    infer FReturnType,
-    infer FComponentPath
-  >
-    ? FunctionReference<
-        FType,
-        "internal",
-        OpaqueIds<FArgs>,
-        OpaqueIds<FReturnType>,
-        FComponentPath
-      >
-    : UseApi<API[mod]>;
-}>;
-
 function logStatusAndInstructions(
   name: string,
   status: MigrationStatus,
@@ -649,7 +621,7 @@ function logStatusAndInstructions(
     cursor?: string | null;
     batchSize?: number;
     dryRun?: boolean;
-  }
+  },
 ) {
   const output: Record<string, unknown> = {};
   if (status.isDone) {
