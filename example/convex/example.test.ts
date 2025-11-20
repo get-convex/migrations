@@ -19,6 +19,8 @@ describe("example", () => {
       const docs = await ctx.db.query("myTable").collect();
       expect(docs).toHaveLength(10);
       expect(docs.some((doc) => doc.optionalField === undefined)).toBe(true);
+    });
+    await t.run(async (ctx) => {
       await migrations.runOne(ctx, internal.example.setDefaultValue, {
         batchSize: 2,
         dryRun: false,
