@@ -625,7 +625,7 @@ export type MigrationFunctionReference = FunctionReference<
  * To resume a series, call the series again: {@link Migrations.runSerially}.
  *
  * Note: It's up to you to determine if it's safe to run a migration while
- * others are in progress. It won't run multiple instance of the same migration
+ * others are in progress. It won't run multiple instances of the same migration
  * but it currently allows running multiple migrations on the same table.
  *
  * @param ctx Context from an action.
