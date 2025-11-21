@@ -2,6 +2,7 @@ import {
   createFunctionHandle,
   type DocumentByName,
   type FunctionReference,
+  type GenericActionCtx,
   type GenericDataModel,
   type GenericMutationCtx,
   type GenericQueryCtx,
@@ -152,7 +153,7 @@ export class Migrations<DataModel extends GenericDataModel> {
   }
 
   private async _runInteractive(
-    ctx: RunMutationCtx,
+    ctx: MutationCtx | ActionCtx,
     args: MigrationArgs,
     fnRef?: MigrationFunctionReference,
     next?: { name: string; fnHandle: string }[],
@@ -461,7 +462,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    *   It's helpful to see what it would do without committing the transaction.
    */
   async runOne(
-    ctx: RunMutationCtx,
+    ctx: MutationCtx | ActionCtx,
     fnRef: MigrationFunctionReference,
     opts?: {
       cursor?: string | null;
@@ -513,7 +514,10 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param ctx Context from a mutation or action. Needs `runMutation`.
    * @param fnRefs The migrations to run in order. Like [internal.migrations.foo].
    */
-  async runSerially(ctx: RunMutationCtx, fnRefs: MigrationFunctionReference[]) {
+  async runSerially(
+    ctx: MutationCtx | ActionCtx,
+    fnRefs: MigrationFunctionReference[],
+  ) {
     if (fnRefs.length === 0) return;
     const [fnRef, ...rest] = fnRefs;
     const next = await Promise.all(
@@ -538,7 +542,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @returns The status of the migrations, in the order of the input.
    */
   async getStatus(
-    ctx: RunQueryCtx,
+    ctx: QueryCtx | MutationCtx | ActionCtx,
     {
       migrations,
       limit,
@@ -567,7 +571,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @returns The status of the migration after attempting to cancel it.
    */
   async cancel(
-    ctx: RunMutationCtx,
+    ctx: MutationCtx | ActionCtx,
     migration: MigrationFunctionReference | string,
   ): Promise<MigrationStatus> {
     const name =
@@ -585,7 +589,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param ctx Context from a mutation or action. Needs `runMutation`.
    * @returns The status of up to 100 of the canceled migrations.
    */
-  async cancelAll(ctx: RunMutationCtx) {
+  async cancelAll(ctx: MutationCtx | ActionCtx) {
     return ctx.runMutation(this.component.lib.cancelAll, {});
   }
 
@@ -604,14 +608,6 @@ export type MigrationFunctionReference = FunctionReference<
   MigrationArgs
 >;
 
-/* Type utils follow */
-
-type RunQueryCtx = {
-  runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
-};
-type RunMutationCtx = {
-  runMutation: GenericMutationCtx<GenericDataModel>["runMutation"];
-};
 
 function logStatusAndInstructions(
   name: string,
@@ -687,3 +683,15 @@ function logStatusAndInstructions(
   }
   return output;
 }
+
+/* Type utils follow */
+
+type QueryCtx = Pick<GenericQueryCtx<GenericDataModel>, "runQuery">;
+type MutationCtx = Pick<
+  GenericMutationCtx<GenericDataModel>,
+  "runQuery" | "runMutation"
+>;
+type ActionCtx = Pick<
+  GenericActionCtx<GenericDataModel>,
+  "runQuery" | "runMutation" | "runAction"
+>;
