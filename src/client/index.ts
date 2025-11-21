@@ -609,6 +609,80 @@ export type MigrationFunctionReference = FunctionReference<
   MigrationArgs
 >;
 
+/**
+ * Start a migration and run it synchronously until it's done.
+ * If this function crashes, the migration will not continue.
+ *
+ * ```ts
+ * // In an action
+ * const toRun = internal.migrations.myMigration;
+ * await runSynchronously(ctx, components.migrations, toRun);
+ * ```
+ *
+ * If it's already in progress, it will no-op.
+ * If you run a migration that had previously failed which was part of a series,
+ * it will not resume the series.
+ * To resume a series, call the series again: {@link Migrations.runSerially}.
+ *
+ * Note: It's up to you to determine if it's safe to run a migration while
+ * others are in progress. It won't run multiple instance of the same migration
+ * but it currently allows running multiple migrations on the same table.
+ *
+ * @param ctx Context from an action.
+ * @param component The migrations component, usually `components.migrations`.
+ * @param fnRef The migration function to run. Like `internal.migrations.foo`.
+ * @param opts Options to start the migration.
+ *   It's helpful to see what it would do without committing the transaction.
+ */
+export async function runSynchronously(
+  ctx: ActionCtx,
+  component: ComponentApi,
+  fnRef: MigrationFunctionReference,
+  opts?: {
+    /**
+     * The cursor to start from.
+     * null: start from the beginning.
+     * undefined: start, or resume from where it failed. No-ops if already done.
+     */
+    cursor?: string | null;
+    /**
+     * The number of documents to process in a batch.
+     * Overrides the migrations's configured batch size.
+     */
+    batchSize?: number;
+    /**
+     * If true, it will run a batch and then throw an error.
+     * It's helpful to see what it would do without committing the transaction.
+     */
+    dryRun?: boolean;
+  },
+) {
+  let cursor = opts?.cursor;
+  while (true) {
+    const status = await ctx.runMutation(component.lib.migrate, {
+      name: getFunctionName(fnRef),
+      fnHandle: await createFunctionHandle(fnRef),
+      cursor,
+      batchSize: opts?.batchSize,
+      dryRun: opts?.dryRun ?? false,
+      oneBatchOnly: true,
+    });
+    if (status.isDone) {
+      return status;
+    }
+    if (status.error) {
+      throw new Error(status.error);
+    }
+    if (!status.cursor || status.cursor === cursor) {
+      throw new Error(
+        "Invariant violation: Migration did not make progress." +
+          `\nStatus: ${JSON.stringify(status)}`,
+      );
+    }
+    cursor = status.cursor;
+  }
+}
+
 /* Type utils follow */
 
 type QueryCtx = Pick<GenericQueryCtx<GenericDataModel>, "runQuery">;

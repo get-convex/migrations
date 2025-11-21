@@ -95,6 +95,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           fnHandle: string;
           name: string;
           next?: Array<{ fnHandle: string; name: string }>;
+          oneBatchOnly?: boolean;
         },
         {
           batchSize?: number;

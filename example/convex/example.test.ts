@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { initConvexTest } from "./setup.test";
-import { internal } from "./_generated/api";
-import { migrations } from "./example";
+import { components, internal } from "./_generated/api";
+import { runSynchronously } from "@convex-dev/migrations";
 
 describe("example", () => {
   beforeEach(async () => {
@@ -12,7 +12,7 @@ describe("example", () => {
     vi.useRealTimers();
   });
 
-  test("setDefaultValue", async () => {
+  test("test setDefaultValue migration", async () => {
     const t = initConvexTest();
     await t.mutation(internal.example.seed, { count: 10 });
     await t.run(async (ctx) => {
@@ -21,16 +21,31 @@ describe("example", () => {
       expect(docs.some((doc) => doc.optionalField === undefined)).toBe(true);
     });
     await t.run(async (ctx) => {
-      await migrations.runOne(ctx, internal.example.setDefaultValue, {
-        batchSize: 2,
-        dryRun: false,
-      });
+      await runSynchronously(
+        ctx,
+        components.migrations,
+        internal.example.setDefaultValue,
+        { batchSize: 2 },
+      );
     });
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
     await t.run(async (ctx) => {
       const after = await ctx.db.query("myTable").collect();
       expect(after).toHaveLength(10);
       expect(after.every((doc) => doc.optionalField !== undefined)).toBe(true);
     });
+  });
+
+  test("test failingMigration", async () => {
+    const t = initConvexTest();
+    await t.mutation(internal.example.seed, { count: 10 });
+    await expect(
+      t.run(async (ctx) => {
+        await runSynchronously(
+          ctx,
+          components.migrations,
+          internal.example.failingMigration,
+        );
+      }),
+    ).rejects.toThrow("This migration fails after the first");
   });
 });
