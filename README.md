@@ -442,4 +442,57 @@ await migrations.getStatus(ctx, { migrations: ["myNewMutation"] });
 await migrations.cancel(ctx, "myNewMutation");
 ```
 
+## Running migrations synchronously
+
+If you want to run a migration synchronously from a test or action, you can use
+`runSynchronously`. Note that if the action crashes or is canceled, it will not
+continue migrating in the background.
+
+From an action:
+
+```ts
+import { components, internal } from "./_generated/api";
+import { internalAction } from "./_generated/server";
+import { runSynchronously } from "@convex-dev/migrations";
+
+export const myAction = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    //...
+    const toRun = internal.example.setDefaultValue;
+    await runSynchronously(ctx, components.migrations, toRun);
+  },
+});
+```
+
+In a test:
+
+```ts
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import component from "@convex-dev/migrations/test";
+import { runSynchronously } from "@convex-dev/migrations";
+import { components, internal } from "./_generated/api";
+import schema from "./schema";
+
+test("test setDefaultValue migration", async () => {
+  const t = convexTest(schema);
+  // Register the component in the test instance
+  component.register(t);
+
+  await t.run(async (ctx) => {
+    // Add sample data to migrate
+    await ctx.db.insert("myTable", { optionalField: undefined });
+
+    // Run the migration to completion
+    const migrationToTest = internal.example.setDefaultValue;
+    await runSynchronously(ctx, components.migrations, migrationToTest);
+
+    // Assert that the migration was successful by checking the data
+    const docs = await ctx.db.query("myTable").collect();
+    expect(docs.every((doc) => doc.optionalField !== undefined)).toBe(true);
+  });
+});
+```
+
 <!-- END: Include on https://convex.dev/components -->
