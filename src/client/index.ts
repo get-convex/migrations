@@ -616,7 +616,7 @@ export type MigrationFunctionReference = FunctionReference<
  * ```ts
  * // In an action
  * const toRun = internal.migrations.myMigration;
- * await runSynchronously(ctx, components.migrations, toRun);
+ * await runToCompletion(ctx, components.migrations, toRun);
  * ```
  *
  * If it's already in progress, it will no-op.
@@ -634,7 +634,7 @@ export type MigrationFunctionReference = FunctionReference<
  * @param opts Options to start the migration.
  *   It's helpful to see what it would do without committing the transaction.
  */
-export async function runSynchronously(
+export async function runToCompletion(
   ctx: ActionCtx,
   component: ComponentApi,
   fnRef: MigrationFunctionReference,

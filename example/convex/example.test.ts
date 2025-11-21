@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { initConvexTest } from "./setup.test";
 import { components, internal } from "./_generated/api";
-import { runSynchronously } from "@convex-dev/migrations";
+import { runToCompletion } from "@convex-dev/migrations";
 
 describe("example", () => {
   beforeEach(async () => {
@@ -21,7 +21,7 @@ describe("example", () => {
       expect(docs.some((doc) => doc.optionalField === undefined)).toBe(true);
     });
     await t.run(async (ctx) => {
-      await runSynchronously(
+      await runToCompletion(
         ctx,
         components.migrations,
         internal.example.setDefaultValue,
@@ -40,7 +40,7 @@ describe("example", () => {
     await t.mutation(internal.example.seed, { count: 10 });
     await expect(
       t.run(async (ctx) => {
-        await runSynchronously(
+        await runToCompletion(
           ctx,
           components.migrations,
           internal.example.failingMigration,

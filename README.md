@@ -445,7 +445,7 @@ await migrations.cancel(ctx, "myNewMutation");
 ## Running migrations synchronously
 
 If you want to run a migration synchronously from a test or action, you can use
-`runSynchronously`. Note that if the action crashes or is canceled, it will not
+`runToCompletion`. Note that if the action crashes or is canceled, it will not
 continue migrating in the background.
 
 From an action:
@@ -453,14 +453,14 @@ From an action:
 ```ts
 import { components, internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
-import { runSynchronously } from "@convex-dev/migrations";
+import { runToCompletion } from "@convex-dev/migrations";
 
 export const myAction = internalAction({
   args: {},
   handler: async (ctx) => {
     //...
     const toRun = internal.example.setDefaultValue;
-    await runSynchronously(ctx, components.migrations, toRun);
+    await runToCompletion(ctx, components.migrations, toRun);
   },
 });
 ```
@@ -471,7 +471,7 @@ In a test:
 import { test } from "vitest";
 import { convexTest } from "convex-test";
 import component from "@convex-dev/migrations/test";
-import { runSynchronously } from "@convex-dev/migrations";
+import { runToCompletion } from "@convex-dev/migrations";
 import { components, internal } from "./_generated/api";
 import schema from "./schema";
 
@@ -486,7 +486,7 @@ test("test setDefaultValue migration", async () => {
 
     // Run the migration to completion
     const migrationToTest = internal.example.setDefaultValue;
-    await runSynchronously(ctx, components.migrations, migrationToTest);
+    await runToCompletion(ctx, components.migrations, migrationToTest);
 
     // Assert that the migration was successful by checking the data
     const docs = await ctx.db.query("myTable").collect();
