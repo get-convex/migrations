@@ -6,6 +6,7 @@ import {
   type GenericDataModel,
   type GenericMutationCtx,
   type GenericQueryCtx,
+  getFunctionAddress,
   getFunctionName,
   internalMutationGeneric,
   makeFunctionReference,
@@ -27,6 +28,7 @@ export type { MigrationArgs, MigrationResult, MigrationStatus };
 import { ConvexError, type GenericId } from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
 import { logStatusAndInstructions } from "./log.js";
+import type { MigrationFunctionHandle } from "../component/lib.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
@@ -637,8 +639,12 @@ export type MigrationFunctionReference = FunctionReference<
 export async function runToCompletion(
   ctx: ActionCtx,
   component: ComponentApi,
-  fnRef: MigrationFunctionReference,
+  fnRef: MigrationFunctionReference | MigrationFunctionHandle,
   opts?: {
+    /**
+     * The name of the migration function, generated with getFunctionName.
+     */
+    name?: string;
     /**
      * The cursor to start from.
      * null: start from the beginning.
@@ -656,15 +662,23 @@ export async function runToCompletion(
      */
     dryRun?: boolean;
   },
-) {
+): Promise<MigrationStatus> {
   let cursor = opts?.cursor;
+  const {
+    name = getFunctionName(fnRef),
+    batchSize,
+    dryRun = false,
+  } = opts ?? {};
+  const address = getFunctionAddress(fnRef);
+  const fnHandle =
+    address.functionHandle ?? (await createFunctionHandle(fnRef));
   while (true) {
     const status = await ctx.runMutation(component.lib.migrate, {
-      name: getFunctionName(fnRef),
-      fnHandle: await createFunctionHandle(fnRef),
+      name,
+      fnHandle,
       cursor,
-      batchSize: opts?.batchSize,
-      dryRun: opts?.dryRun ?? false,
+      batchSize,
+      dryRun,
       oneBatchOnly: true,
     });
     if (status.isDone) {
