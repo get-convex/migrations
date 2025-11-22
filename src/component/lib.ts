@@ -27,6 +27,7 @@ const runMigrationArgs = {
   cursor: v.optional(v.union(v.string(), v.null())),
 
   batchSize: v.optional(v.number()),
+  oneBatchOnly: v.optional(v.boolean()),
   next: v.optional(
     v.array(
       v.object({
@@ -43,7 +44,7 @@ export const migrate = mutation({
   returns: migrationStatus,
   handler: async (ctx, args) => {
     // Step 1: Get or create the state.
-    const { fnHandle, batchSize, next: next_, dryRun, ...initialState } = args;
+    const { fnHandle, batchSize, next: next_, dryRun, name } = args;
     if (batchSize !== undefined && batchSize <= 0) {
       throw new Error("Batch size must be greater than 0");
     }
@@ -58,11 +59,11 @@ export const migrate = mutation({
     const state =
       (await ctx.db
         .query("migrations")
-        .withIndex("name", (q) => q.eq("name", args.name))
+        .withIndex("name", (q) => q.eq("name", name))
         .unique()) ??
       (await ctx.db.get(
         await ctx.db.insert("migrations", {
-          ...initialState,
+          name,
           cursor: args.cursor ?? null,
           isDone: false,
           processed: 0,
@@ -122,7 +123,9 @@ export const migrate = mutation({
       }
 
       // Step 3: Schedule the next batch or next migration.
-      if (!state.isDone) {
+      if (args.oneBatchOnly) {
+        state.workerId = undefined;
+      } else if (!state.isDone) {
         // Recursively schedule the next batch.
         state.workerId = await ctx.scheduler.runAfter(0, api.lib.migrate, {
           ...args,
@@ -159,7 +162,7 @@ export const migrate = mutation({
           }
         } else {
           console.info(
-            `Migration ${args.name} is done.` +
+            `Migration ${name} is done.` +
               (i < next.length ? ` Next: ${next[i]!.name}` : ""),
           );
         }
@@ -171,7 +174,7 @@ export const migrate = mutation({
         updateState(e.data.result);
       } else {
         state.error = e instanceof Error ? e.message : String(e);
-        console.error(`Migration ${args.name} failed: ${state.error}`);
+        console.error(`Migration ${name} failed: ${state.error}`);
       }
       if (dryRun) {
         const status = await getMigrationState(ctx, state);
@@ -296,7 +299,9 @@ async function cancelMigration(ctx: MutationCtx, migration: Doc<"migrations">) {
     return state;
   }
   if (state.state === "inProgress") {
-    await ctx.scheduler.cancel(migration.workerId!);
+    if (!migration.workerId) {
+      await ctx.scheduler.cancel(migration.workerId!);
+    }
     console.log(`Canceled migration ${migration.name}`);
     return { ...state, state: "canceled" as const };
   }
