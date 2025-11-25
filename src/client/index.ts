@@ -195,7 +195,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     let status: MigrationStatus;
     try {
       if (args.inline) {
-        if (!("runAction" in ctx)) {
+        if (!("storage" in ctx) || ctx.storage.store === undefined) {
           throw new Error("Cannot run inline migration from a mutation");
         }
         return await _runToCompletionInline(ctx, this.component, [
