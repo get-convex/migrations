@@ -706,5 +706,5 @@ type MutationCtx = Pick<
 >;
 type ActionCtx = Pick<
   GenericActionCtx<GenericDataModel>,
-  "runQuery" | "runMutation" | "runAction"
+  "runQuery" | "runMutation" | "storage"
 >;
