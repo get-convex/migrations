@@ -27,7 +27,12 @@ const runMigrationArgs = {
   cursor: v.optional(v.union(v.string(), v.null())),
 
   batchSize: v.optional(v.number()),
+  // If true, it will run a batch and then return,
+  // without scheduling the next batch or the next migration.
   oneBatchOnly: v.optional(v.boolean()),
+  // If true, it will continue from where it left off,
+  // even if it had previously completed.
+  forceContinue: v.optional(v.boolean()),
   next: v.optional(
     v.array(
       v.object({
@@ -109,7 +114,7 @@ export const migrate = mutation({
 
     try {
       // Step 2: Run the migration.
-      if (!state.isDone) {
+      if (!state.isDone || args.forceContinue) {
         const result = await ctx.runMutation(
           fnHandle as MigrationFunctionHandle,
           {
@@ -129,6 +134,7 @@ export const migrate = mutation({
         // Recursively schedule the next batch.
         state.workerId = await ctx.scheduler.runAfter(0, api.lib.migrate, {
           ...args,
+          forceContinue: false,
           cursor: state.cursor,
         });
       } else {

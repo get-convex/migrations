@@ -93,6 +93,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           cursor?: string | null;
           dryRun: boolean;
           fnHandle: string;
+          forceContinue?: boolean;
           name: string;
           next?: Array<{ fnHandle: string; name: string }>;
           oneBatchOnly?: boolean;

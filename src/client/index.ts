@@ -471,6 +471,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       cursor?: string | null;
       batchSize?: number;
       dryRun?: boolean;
+      forceContinue?: boolean;
     },
   ) {
     return ctx.runMutation(this.component.lib.migrate, {
@@ -479,6 +480,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       cursor: opts?.cursor,
       batchSize: opts?.batchSize,
       dryRun: opts?.dryRun ?? false,
+      forceContinue: opts?.forceContinue,
     });
   }
 
@@ -661,6 +663,11 @@ export async function runToCompletion(
      * It's helpful to see what it would do without committing the transaction.
      */
     dryRun?: boolean;
+    /**
+     * If true, it will continue from where it left off,
+     * even if it had previously completed.
+     */
+    forceContinue?: boolean;
   },
 ): Promise<MigrationStatus> {
   let cursor = opts?.cursor;
@@ -668,6 +675,7 @@ export async function runToCompletion(
     name = getFunctionName(fnRef),
     batchSize,
     dryRun = false,
+    forceContinue,
   } = opts ?? {};
   const address = getFunctionAddress(fnRef);
   const fnHandle =
@@ -680,6 +688,7 @@ export async function runToCompletion(
       batchSize,
       dryRun,
       oneBatchOnly: true,
+      forceContinue,
     });
     if (status.isDone) {
       return status;

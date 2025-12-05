@@ -209,6 +209,9 @@ await migrations.runOne(ctx, internal.example.setDefaultValue);
   no changes are committed, and you can see what it would have done. See
   [below](#test-a-migration-with-dryrun) This is good for validating it does
   what you expect.
+- If it had already completed, it will no-op. To continue from where it had
+  finished (to handle newer documents), pass in the final cursor value
+  explicitly, or pass `forceContinue: true`.
 
 ## Running migrations serially
 
