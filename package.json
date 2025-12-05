@@ -69,7 +69,7 @@
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "5.0.4",
     "chokidar-cli": "3.0.0",
-    "convex": "1.29.0",
+    "convex": "1.30.0",
     "convex-test": "0.0.41",
     "cpy-cli": "6.0.0",
     "eslint": "9.39.1",
