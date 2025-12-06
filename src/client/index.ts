@@ -8,6 +8,7 @@ import {
   type GenericQueryCtx,
   getFunctionAddress,
   getFunctionName,
+  internalActionGeneric,
   internalMutationGeneric,
   makeFunctionReference,
   type MutationBuilder,
@@ -25,7 +26,7 @@ import {
 } from "../shared.js";
 export type { MigrationArgs, MigrationResult, MigrationStatus };
 
-import { ConvexError, type GenericId } from "convex/values";
+import { ConvexError, v, type GenericId } from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
 import { logStatusAndInstructions } from "./log.js";
 import type { MigrationFunctionHandle } from "../component/lib.js";
@@ -124,8 +125,11 @@ export class Migrations<DataModel extends GenericDataModel> {
       | MigrationFunctionReference
       | MigrationFunctionReference[],
   ) {
-    return internalMutationGeneric({
-      args: migrationArgs,
+    return internalActionGeneric({
+      args: {
+        ...migrationArgs,
+        inline: v.optional(v.boolean()),
+      },
       handler: async (ctx, args) => {
         const [specificMigration, next] = Array.isArray(
           specificMigrationOrSeries,
@@ -157,9 +161,9 @@ export class Migrations<DataModel extends GenericDataModel> {
 
   private async _runInteractive(
     ctx: MutationCtx | ActionCtx,
-    args: MigrationArgs,
+    args: MigrationArgs & { inline?: boolean },
     fnRef?: MigrationFunctionReference,
-    next?: { name: string; fnHandle: string }[],
+    next?: { name: string; fnHandle: MigrationFunctionHandle }[],
   ) {
     const name = args.fn ? this.prefixedName(args.fn) : getFunctionName(fnRef!);
     async function makeFn(fn: string) {
@@ -190,14 +194,34 @@ export class Migrations<DataModel extends GenericDataModel> {
     }
     let status: MigrationStatus;
     try {
-      status = await ctx.runMutation(this.component.lib.migrate, {
-        name,
-        fnHandle,
-        cursor: args.cursor,
-        batchSize: args.batchSize,
-        next,
-        dryRun: args.dryRun ?? false,
-      });
+      if (args.inline) {
+        if (!("storage" in ctx) || ctx.storage.store === undefined) {
+          throw new Error("Cannot run inline migration from a mutation");
+        }
+        return await _runToCompletionInline(ctx, this.component, [
+          {
+            fnHandle,
+            name,
+            batchSize: args.batchSize,
+            cursor: args.cursor,
+            dryRun: args.dryRun,
+          },
+          ...(next ?? []).map(({ name, fnHandle }) => ({
+            fnHandle,
+            name,
+            dryRun: args.dryRun,
+          })),
+        ]);
+      } else {
+        status = await ctx.runMutation(this.component.lib.migrate, {
+          name,
+          fnHandle,
+          cursor: args.cursor,
+          batchSize: args.batchSize,
+          next,
+          dryRun: args.dryRun ?? false,
+        });
+      }
     } catch (e) {
       if (
         args.dryRun &&
@@ -640,28 +664,7 @@ export async function runToCompletion(
   ctx: ActionCtx,
   component: ComponentApi,
   fnRef: MigrationFunctionReference | MigrationFunctionHandle,
-  opts?: {
-    /**
-     * The name of the migration function, generated with getFunctionName.
-     */
-    name?: string;
-    /**
-     * The cursor to start from.
-     * null: start from the beginning.
-     * undefined: start, or resume from where it failed. No-ops if already done.
-     */
-    cursor?: string | null;
-    /**
-     * The number of documents to process in a batch.
-     * Overrides the migrations's configured batch size.
-     */
-    batchSize?: number;
-    /**
-     * If true, it will run a batch and then throw an error.
-     * It's helpful to see what it would do without committing the transaction.
-     */
-    dryRun?: boolean;
-  },
+  opts?: RunToCompletionOptions,
 ): Promise<MigrationStatus> {
   let cursor = opts?.cursor;
   const {
@@ -695,6 +698,71 @@ export async function runToCompletion(
     }
     cursor = status.cursor;
   }
+}
+
+type RunToCompletionOptions = {
+  /**
+   * The name of the migration function, generated with getFunctionName.
+   */
+  name?: string;
+  /**
+   * The cursor to start from.
+   * null: start from the beginning.
+   * undefined: start, or resume from where it failed. No-ops if already done.
+   */
+  cursor?: string | null;
+  /**
+   * The number of documents to process in a batch.
+   * Overrides the migrations's configured batch size.
+   */
+  batchSize?: number;
+  /**
+   * If true, it will run a batch and then throw an error.
+   * It's helpful to see what it would do without committing the transaction.
+   */
+  dryRun?: boolean;
+};
+
+async function _runToCompletionInline(
+  ctx: ActionCtx,
+  component: ComponentApi,
+  migrations: (RunToCompletionOptions & {
+    name: string;
+    fnHandle: MigrationFunctionHandle;
+  })[],
+) {
+  console.warn(
+    `Running migration${
+      migrations.length > 1
+        ? "s " + migrations.map((m) => m.name).join(", ")
+        : " " + migrations[0].name
+    } inline. ` +
+      "Note: If this action times out, transiently fails, or is canceled, the migration will not continue.",
+  );
+  const totalStatus: Record<string, Record<string, unknown>> = {};
+  for (const { fnHandle, ...args } of migrations) {
+    const { name } = args;
+    if (migrations.length > 1) {
+      console.log("Starting ", name);
+    }
+    const status = await runToCompletion(ctx, component, fnHandle, args);
+    const {
+      toCancel: _1,
+      toMonitorStatus: _2,
+      toStartOver: _3,
+      ...log
+    } = logStatusAndInstructions(name, status, args);
+    totalStatus[name] = log;
+    if (migrations.length > 1) {
+      console.log(
+        totalStatus[name] +
+          ": " +
+          totalStatus[name].Status +
+          `(${status.processed} documents processed)`,
+      );
+    }
+  }
+  return totalStatus;
 }
 
 /* Type utils follow */

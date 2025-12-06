@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 alpha
+
+- Allows running migrations inline from the runner and CLI
+
 ## 0.3.1
 
 - Adds `runToCompletion` which can run a migration synchronously from an action,
