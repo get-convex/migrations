@@ -14,6 +14,8 @@ export default [
       "example/**/*.config.{js,mjs,cjs,ts,tsx}",
       "**/_generated/",
       "stubs.mjs",
+      // Local component example requires generated types from convex dev
+      "example/convex/localComponent/**",
     ],
   },
   {

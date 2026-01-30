@@ -65,8 +65,11 @@ Run `npm create convex` or follow any of the
 Install the component package:
 
 ```ts
-npm install @convex-dev/migrations
+npm install @convex-dev/migrations convex-helpers
 ```
+
+The `convex-helpers` package is a peer dependency that provides improved
+pagination support, especially for component migrations.
 
 Create a `convex.config.ts` file in your app's `convex/` folder and install the
 component by calling `use`:
@@ -448,6 +451,57 @@ Or in code:
 await migrations.getStatus(ctx, { migrations: ["myNewMutation"] });
 await migrations.cancel(ctx, "myNewMutation");
 ```
+
+### Migrations in Convex Components
+
+When writing migrations for data inside a
+[Convex component](https://docs.convex.dev/components/authoring), you **must**
+pass the `schema` option to the Migrations constructor. This is because the
+built-in pagination is not available in component contexts.
+
+```ts
+// Inside your component's convex folder (e.g., myComponent/example.ts)
+import { Migrations, type SchemaForDataModel } from "@convex-dev/migrations";
+import { components } from "./_generated/api.js";
+import type { DataModel } from "./_generated/dataModel.js";
+import { internalMutation } from "./_generated/server.js";
+import schema from "./schema.js";
+
+// Required for component migrations: pass your schema
+export const migrations = new Migrations<DataModel>(components.migrations, {
+  internalMutation,
+  schema: schema as SchemaForDataModel<DataModel>,
+});
+
+export const run = migrations.runner();
+
+export const addDefaultValue = migrations.define({
+  table: "componentData",
+  migrateOne: async (_ctx, doc) => {
+    if (doc.value === undefined) {
+      return { value: "default" };
+    }
+  },
+});
+```
+
+Your component's `convex.config.ts` must also use the migrations component:
+
+```ts
+// myComponent/convex.config.ts
+import { defineComponent } from "convex/server";
+import migrations from "@convex-dev/migrations/convex.config";
+
+const component = defineComponent("myComponent");
+component.use(migrations);
+
+export default component;
+```
+
+**Note**: For regular app-level migrations (not inside a component), the
+`schema` parameter is optional but recommended. When provided, it enables the
+improved paginator from `convex-helpers` which supports multiple pagination
+calls and works more reliably in some edge cases.
 
 ## Running migrations synchronously
 

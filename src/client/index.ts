@@ -15,8 +15,10 @@ import {
   type OrderedQuery,
   type QueryInitializer,
   type RegisteredMutation,
+  type SchemaDefinition,
   type TableNamesInDataModel,
 } from "convex/server";
+import { paginator } from "convex-helpers/server/pagination";
 import {
   type MigrationArgs,
   migrationArgs,
@@ -29,6 +31,46 @@ import { ConvexError, type GenericId } from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
 import { logStatusAndInstructions } from "./log.js";
 import type { MigrationFunctionHandle } from "../component/lib.js";
+
+/**
+ * Detects if a cursor is in the new paginator format (JSON array starting with "[")
+ * or old built-in format (encrypted opaque string).
+ *
+ * New format cursors from convex-helpers paginator are JSON-serialized arrays like:
+ * '["value", 1234567890, "documentId"]'
+ *
+ * Old format cursors from built-in .paginate() are encrypted opaque strings.
+ *
+ * @returns true if this is a new-format cursor (or null for starting fresh)
+ */
+export function isNewFormatCursor(cursor: string | null): boolean {
+  if (cursor === null) return true;
+  return typeof cursor === "string" && cursor.startsWith("[");
+}
+
+/**
+ * Type helper for schema parameter in Migrations constructor.
+ * Use this to ensure your schema is compatible with the DataModel.
+ *
+ * When using Migrations in a Convex component, you must pass your schema
+ * to enable pagination (required for components).
+ *
+ * @example
+ * ```ts
+ * import schema from "./schema.js";
+ * import type { DataModel } from "./_generated/dataModel.js";
+ *
+ * const migrations = new Migrations<DataModel>(components.migrations, {
+ *   schema: schema as SchemaForDataModel<DataModel>,
+ * });
+ * ```
+ */
+export type SchemaForDataModel<DM extends GenericDataModel> =
+  SchemaDefinition<any, boolean> & {
+    // Branded type to document that this schema should produce a compatible DataModel.
+    // The actual type checking happens when paginator is called.
+    __dataModel?: DM;
+  };
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
@@ -89,6 +131,22 @@ export class Migrations<DataModel extends GenericDataModel> {
        * ```
        */
       migrationsLocationPrefix?: string;
+      /**
+       * The schema for your database. Required when running migrations
+       * in a Convex component (where built-in pagination is not available).
+       *
+       * When provided, enables the improved paginator from convex-helpers
+       * which works in components and supports multiple pagination calls.
+       *
+       * ```ts
+       * import schema from "./schema.js";
+       *
+       * const migrations = new Migrations(components.migrations, {
+       *   schema,
+       * });
+       * ```
+       */
+      schema?: SchemaForDataModel<DataModel>;
     },
   ) {}
 
@@ -341,7 +399,26 @@ export class Migrations<DataModel extends GenericDataModel> {
           }
         }
 
-        const q = ctx.db.query(table);
+        // Determine which pagination method to use
+        const cursorIsOldFormat =
+          args.cursor !== null &&
+          args.cursor !== undefined &&
+          !isNewFormatCursor(args.cursor);
+
+        // Use paginator when:
+        // - Schema is provided (required for components)
+        // - Cursor is new format or starting fresh
+        // Note: paginator is compatible with customRange (same query builder API)
+        const useNewPaginator =
+          this.options?.schema && !cursorIsOldFormat;
+
+        // Build the query using either paginator or built-in db.query
+        // Both implement compatible QueryInitializer interfaces
+        const q = useNewPaginator
+          ? (paginator(ctx.db as any, this.options!.schema as any).query(
+              table,
+            ) as unknown as QueryInitializer<NamedTableInfo<DataModel, TableName>>)
+          : ctx.db.query(table);
         const range = customRange ? customRange(q) : q;
         let continueCursor: string;
         let page: DocumentByName<DataModel, TableName>[];
