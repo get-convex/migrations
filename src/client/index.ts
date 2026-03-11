@@ -29,6 +29,8 @@ import {
   ConvexError,
   type GenericId,
   type GenericValidator,
+  type Infer,
+  type ObjectType,
   type PropertyValidators,
   type Validator,
   v,
@@ -39,6 +41,18 @@ import type { MigrationFunctionHandle } from "../component/lib.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
+
+/**
+ * Infer the TypeScript type from an args validator definition.
+ * - If a single Validator (e.g. `v.object({...})`), use `Infer<T>`.
+ * - If PropertyValidators (e.g. `{ tag: v.string() }`), use `ObjectType<T>`.
+ * - If void/undefined (no args defined), the args type is `undefined`.
+ */
+type InferMigrationArgs<T> = T extends Validator<any, any, any>
+  ? Infer<T>
+  : T extends PropertyValidators
+    ? ObjectType<T>
+    : undefined;
 
 /**
  * When args are provided, append a deterministic serialization to the migration
@@ -281,7 +295,10 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param parallelize - If true, each migration batch will be run in parallel.
    * @returns An internal mutation that runs the migration.
    */
-  define<TableName extends TableNamesInDataModel<DataModel>>({
+  define<
+    TableName extends TableNamesInDataModel<DataModel>,
+    ArgsValidator extends GenericValidator | PropertyValidators | void = void,
+  >({
     table,
     migrateOne,
     customRange,
@@ -293,18 +310,18 @@ export class Migrations<DataModel extends GenericDataModel> {
     migrateOne: (
       ctx: GenericMutationCtx<DataModel>,
       doc: DocumentByName<DataModel, TableName> & { _id: GenericId<TableName> },
-      args: any,
+      args: InferMigrationArgs<ArgsValidator>,
     ) =>
       | void
       | Partial<DocumentByName<DataModel, TableName>>
       | Promise<Partial<DocumentByName<DataModel, TableName>> | void>;
     customRange?: (
       q: QueryInitializer<NamedTableInfo<DataModel, TableName>>,
-      args: any,
+      args: InferMigrationArgs<ArgsValidator>,
     ) => OrderedQuery<NamedTableInfo<DataModel, TableName>>;
     batchSize?: number;
     parallelize?: boolean;
-    args?: GenericValidator | PropertyValidators;
+    args?: ArgsValidator;
   }) {
     const defaultBatchSize =
       functionDefaultBatchSize ??
