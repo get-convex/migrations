@@ -33,6 +33,7 @@ const runMigrationArgs = {
       v.object({
         name: v.string(),
         fnHandle: v.string(),
+        args: v.optional(v.any()),
       }),
     ),
   ),
@@ -151,6 +152,7 @@ export const migrate = mutation({
               await ctx.scheduler.runAfter(0, api.lib.migrate, {
                 name: nextFn.name,
                 fnHandle: nextFn.fnHandle,
+                args: nextFn.args,
                 next: rest,
                 batchSize,
                 dryRun,

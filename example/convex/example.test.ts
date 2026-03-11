@@ -145,14 +145,13 @@ describe("example", () => {
         { args: { value: "test" } },
       );
 
-      // @ts-expect-error — wrong args: `notAField` is not in { value: string }
       void runToCompletion(
         ctx,
         components.migrations,
         internal.example.setConfiguredValue,
+        // @ts-expect-error — wrong args: `notAField` is not in { value: string }
         { args: { notAField: 123 } },
       );
     }
-    _typeCheck;
   });
 });

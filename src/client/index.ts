@@ -180,6 +180,7 @@ export class Migrations<DataModel extends GenericDataModel> {
                 specificMigrationOrSeries.slice(1).map(async (fnRef) => ({
                   name: getFunctionName(fnRef),
                   fnHandle: await createFunctionHandle(fnRef),
+                  args: args.args,
                 })),
               ),
             ]

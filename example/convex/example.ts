@@ -25,7 +25,7 @@ export const setDefaultValue = migrations.define({
 
 export const setConfiguredValue = migrations.define({
   table: "myTable",
-  args: v.object({ value: v.string() }),
+  args: { value: v.string() },
   migrateOne: async (_ctx, doc, args) => {
     if (doc.optionalField !== args.value) {
       return { optionalField: args.value };
