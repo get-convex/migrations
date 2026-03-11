@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  afterEach,
+  assertType,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest";
 import { initConvexTest } from "./setup.test";
 import { components, internal } from "./_generated/api";
 import { runToCompletion } from "@convex-dev/migrations";
@@ -122,5 +130,29 @@ describe("example", () => {
       const after = await ctx.db.query("myTable").collect();
       expect(after.every((doc) => doc.optionalField === "second")).toBe(true);
     });
+  });
+
+  test("args type is inferred from the migration definition", () => {
+    // Type-level only test: verify that args for setConfiguredValue is inferred
+    // as { value: string }, not `any`.
+    // We use a function that is never called to avoid runtime errors.
+    function _typeCheck(ctx: any) {
+      // Correct args — should type-check fine
+      void runToCompletion(
+        ctx,
+        components.migrations,
+        internal.example.setConfiguredValue,
+        { args: { value: "test" } },
+      );
+
+      // @ts-expect-error — wrong args: `notAField` is not in { value: string }
+      void runToCompletion(
+        ctx,
+        components.migrations,
+        internal.example.setConfiguredValue,
+        { args: { notAField: 123 } },
+      );
+    }
+    _typeCheck;
   });
 });

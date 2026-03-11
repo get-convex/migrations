@@ -28,16 +28,13 @@ export type { MigrationArgs, MigrationResult, MigrationStatus };
 import {
   ConvexError,
   type GenericId,
-  type GenericValidator,
-  type Infer,
   type ObjectType,
   type PropertyValidators,
-  type Validator,
   v,
 } from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
-import { logStatusAndInstructions } from "./log.js";
 import type { MigrationFunctionHandle } from "../component/lib.js";
+import { logStatusAndInstructions } from "./log.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
@@ -48,11 +45,27 @@ export const DEFAULT_BATCH_SIZE = 100;
  * - If PropertyValidators (e.g. `{ tag: v.string() }`), use `ObjectType<T>`.
  * - If void/undefined (no args defined), the args type is `undefined`.
  */
-type InferMigrationArgs<T> = T extends Validator<any, any, any>
-  ? Infer<T>
-  : T extends PropertyValidators
-    ? ObjectType<T>
-    : undefined;
+type InferMigrationArgs<T> = T extends PropertyValidators
+  ? ObjectType<T>
+  : undefined;
+
+/**
+ * MigrationArgs with the `args` field typed to a specific type.
+ */
+type MigrationArgsWithTypedArgs<Args> = Omit<MigrationArgs, "args"> & {
+  args?: Args;
+};
+
+/**
+ * Extract the migration-specific args type from a function reference.
+ * Falls back to `any` for untyped migration references.
+ */
+type ExtractMigrationArgs<Ref> =
+  Ref extends FunctionReference<any, any, infer A, any>
+    ? A extends { args?: infer MArgs }
+      ? MArgs
+      : undefined
+    : any;
 
 /**
  * When args are provided, append a deterministic serialization to the migration
@@ -297,7 +310,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    */
   define<
     TableName extends TableNamesInDataModel<DataModel>,
-    ArgsValidator extends GenericValidator | PropertyValidators | void = void,
+    ArgsValidator extends PropertyValidators | void = void,
   >({
     table,
     migrateOne,
@@ -337,9 +350,10 @@ export class Migrations<DataModel extends GenericDataModel> {
     )({
       args: {
         ...migrationArgs,
-        args: v.optional(
-          (defineArgs ?? v.any()) as Validator<any, "required", any>,
-        ),
+        args:
+          defineArgs == null || Object.keys(defineArgs).length === 0
+            ? v.optional(v.object({}))
+            : v.object(defineArgs),
       },
       handler: async (ctx, args) => {
         if (args.fn) {
@@ -384,7 +398,9 @@ export class Migrations<DataModel extends GenericDataModel> {
         }
 
         const q = ctx.db.query(table);
-        const range = customRange ? customRange(q, args.args) : q;
+        const range = customRange
+          ? customRange(q, args.args as InferMigrationArgs<ArgsValidator>)
+          : q;
         let continueCursor: string;
         let page: DocumentByName<DataModel, TableName>[];
         let isDone: boolean;
@@ -476,6 +492,10 @@ export class Migrations<DataModel extends GenericDataModel> {
       "internal",
       MigrationArgs,
       Promise<MigrationResult>
+    > as RegisteredMutation<
+      "internal",
+      MigrationArgsWithTypedArgs<InferMigrationArgs<ArgsValidator>>,
+      Promise<MigrationResult>
     >;
   }
 
@@ -512,14 +532,14 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param opts.dryRun If true, it will run a batch and then throw an error.
    *   It's helpful to see what it would do without committing the transaction.
    */
-  async runOne(
+  async runOne<Ref extends MigrationFunctionReference>(
     ctx: MutationCtx | ActionCtx,
-    fnRef: MigrationFunctionReference,
+    fnRef: Ref,
     opts?: {
       cursor?: string | null;
       batchSize?: number;
       dryRun?: boolean;
-      args?: any;
+      args?: ExtractMigrationArgs<Ref>;
     },
   ) {
     const baseName = getFunctionName(fnRef);
@@ -687,10 +707,12 @@ export type MigrationFunctionReference = FunctionReference<
  * @param opts Options to start the migration.
  *   It's helpful to see what it would do without committing the transaction.
  */
-export async function runToCompletion(
+export async function runToCompletion<
+  Ref extends MigrationFunctionReference | MigrationFunctionHandle,
+>(
   ctx: ActionCtx,
   component: ComponentApi,
-  fnRef: MigrationFunctionReference | MigrationFunctionHandle,
+  fnRef: Ref,
   opts?: {
     /**
      * The name of the migration function, generated with getFunctionName.
@@ -712,17 +734,13 @@ export async function runToCompletion(
      * It's helpful to see what it would do without committing the transaction.
      */
     dryRun?: boolean;
-    args?: any;
+    args?: ExtractMigrationArgs<Ref>;
   },
 ): Promise<MigrationStatus> {
   let cursor = opts?.cursor;
-  const {
-    name: nameOverride,
-    batchSize,
-    dryRun = false,
-    args,
-  } = opts ?? {};
-  const name = nameOverride ?? migrationNameWithArgs(getFunctionName(fnRef), args);
+  const { name: nameOverride, batchSize, dryRun = false, args } = opts ?? {};
+  const name =
+    nameOverride ?? migrationNameWithArgs(getFunctionName(fnRef), args);
   const address = getFunctionAddress(fnRef);
   const fnHandle =
     address.functionHandle ?? (await createFunctionHandle(fnRef));
