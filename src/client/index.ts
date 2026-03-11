@@ -33,7 +33,10 @@ import {
   v,
 } from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
-import type { MigrationFunctionHandle } from "../component/lib.js";
+import {
+  migrationNameWithArgs,
+  type MigrationFunctionHandle,
+} from "../component/lib.js";
 import { logStatusAndInstructions } from "./log.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
@@ -66,16 +69,6 @@ type ExtractMigrationArgs<Ref> =
       ? MArgs
       : undefined
     : any;
-
-/**
- * When args are provided, append a deterministic serialization to the migration
- * name so that each unique set of args is tracked as a separate migration run.
- */
-function migrationNameWithArgs(baseName: string, args?: unknown): string {
-  if (args === undefined || args === null) return baseName;
-  const serialized = JSON.stringify(args, Object.keys(args as any).sort());
-  return `${baseName}(${serialized})`;
-}
 
 export class Migrations<DataModel extends GenericDataModel> {
   /**

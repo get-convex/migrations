@@ -144,7 +144,9 @@ export const migrate = mutation({
         for (; i < next.length; i++) {
           const doc = await ctx.db
             .query("migrations")
-            .withIndex("name", (q) => q.eq("name", next[i]!.name))
+            .withIndex("name", (q) =>
+              q.eq("name", migrationNameWithArgs(next[i]!.name, next[i]!.args)),
+            )
             .unique();
           if (!doc || !doc.isDone) {
             const [nextFn, ...rest] = next.slice(i);
@@ -356,3 +358,16 @@ export const clearAll = mutation({
     }
   },
 });
+
+/**
+ * When args are provided, append a deterministic serialization to the migration
+ * name so that each unique set of args is tracked as a separate migration run.
+ */
+export function migrationNameWithArgs(
+  baseName: string,
+  args?: unknown,
+): string {
+  if (args === undefined || args === null) return baseName;
+  const serialized = JSON.stringify(args, Object.keys(args as any).sort());
+  return `${baseName}(${serialized})`;
+}
