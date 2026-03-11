@@ -89,6 +89,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          args?: any;
           batchSize?: number;
           cursor?: string | null;
           dryRun: boolean;
