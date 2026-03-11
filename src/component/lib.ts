@@ -37,6 +37,7 @@ const runMigrationArgs = {
     ),
   ),
   dryRun: v.boolean(),
+  args: v.optional(v.any()),
 };
 
 export const migrate = mutation({
@@ -116,6 +117,7 @@ export const migrate = mutation({
             cursor: state.cursor,
             batchSize,
             dryRun,
+            args: args.args,
           },
         );
         updateState(result);

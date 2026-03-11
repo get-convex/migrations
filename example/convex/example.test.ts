@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { initConvexTest } from "./setup.test";
 import { components, internal } from "./_generated/api";
-import { runToCompletion } from "@convex-dev/migrations";
+import { runToCompletion } from "../../src/client/index.ts";
 import { createFunctionHandle, getFunctionName } from "convex/server";
 
 describe("example", () => {
@@ -71,6 +71,25 @@ describe("example", () => {
       const after = await ctx.db.query("myTable").collect();
       expect(after).toHaveLength(10);
       expect(after.every((doc) => doc.optionalField !== undefined)).toBe(true);
+    });
+  });
+  test("test migration with runtime args", async () => {
+    const t = initConvexTest();
+    await t.mutation(internal.example.seed, { count: 10 });
+    await t.run(async (ctx) => {
+      await runToCompletion(
+        ctx,
+        components.migrations,
+        internal.example.setConfiguredValue,
+        { args: { value: "configured" } },
+      );
+    });
+    await t.run(async (ctx) => {
+      const after = await ctx.db.query("myTable").collect();
+      expect(after).toHaveLength(10);
+      expect(after.every((doc) => doc.optionalField === "configured")).toBe(
+        true,
+      );
     });
   });
 });

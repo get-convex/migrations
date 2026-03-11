@@ -132,6 +132,29 @@ export const clearField = migrations.define({
 // is equivalent to `await ctx.db.patch(doc._id, { optionalField: undefined })`
 ```
 
+### Runtime migration arguments
+
+If you need to configure a migration at run time, define validated args and
+consume them in `migrateOne`.
+
+```ts
+export const deleteBeforeDate = migrations.define({
+  table: "events",
+  args: v.object({ beforeTs: v.number() }),
+  migrateOne: async (ctx, doc, args) => {
+    if (doc.createdAt < args.beforeTs) {
+      await ctx.db.delete(doc._id);
+    }
+  },
+});
+```
+
+Then pass `args` when starting the migration:
+
+```sh
+npx convex run migrations:run '{"fn": "migrations:deleteBeforeDate", "args": {"beforeTs": 1735689600000}}'
+```
+
 ### Migrating a subset of a table using an index
 
 If you only want to migrate a range of documents, you can avoid processing the

@@ -1,4 +1,4 @@
-import { Migrations, type MigrationStatus } from "@convex-dev/migrations";
+import { Migrations, type MigrationStatus } from "../../src/client/index.ts";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api.js";
 import type { DataModel } from "./_generated/dataModel.js";
@@ -21,6 +21,16 @@ export const setDefaultValue = migrations.define({
     }
   },
   parallelize: true,
+});
+
+export const setConfiguredValue = migrations.define({
+  table: "myTable",
+  args: v.object({ value: v.string() }),
+  migrateOne: async (_ctx, doc, args) => {
+    if (doc.optionalField !== args.value) {
+      return { optionalField: args.value };
+    }
+  },
 });
 
 export const clearField = migrations.define({

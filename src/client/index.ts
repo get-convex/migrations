@@ -25,7 +25,14 @@ import {
 } from "../shared.js";
 export type { MigrationArgs, MigrationResult, MigrationStatus };
 
-import { ConvexError, type GenericId } from "convex/values";
+import {
+  ConvexError,
+  type GenericId,
+  type GenericValidator,
+  type PropertyValidators,
+  type Validator,
+  v,
+} from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
 import { logStatusAndInstructions } from "./log.js";
 import type { MigrationFunctionHandle } from "../component/lib.js";
@@ -197,6 +204,7 @@ export class Migrations<DataModel extends GenericDataModel> {
         batchSize: args.batchSize,
         next,
         dryRun: args.dryRun ?? false,
+        args: args.args,
       });
     } catch (e) {
       if (
@@ -266,11 +274,13 @@ export class Migrations<DataModel extends GenericDataModel> {
     customRange,
     batchSize: functionDefaultBatchSize,
     parallelize,
+    args: defineArgs,
   }: {
     table: TableName;
     migrateOne: (
       ctx: GenericMutationCtx<DataModel>,
       doc: DocumentByName<DataModel, TableName> & { _id: GenericId<TableName> },
+      args: any,
     ) =>
       | void
       | Partial<DocumentByName<DataModel, TableName>>
@@ -280,6 +290,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     ) => OrderedQuery<NamedTableInfo<DataModel, TableName>>;
     batchSize?: number;
     parallelize?: boolean;
+    args?: GenericValidator | PropertyValidators;
   }) {
     const defaultBatchSize =
       functionDefaultBatchSize ??
@@ -293,7 +304,12 @@ export class Migrations<DataModel extends GenericDataModel> {
         "internal"
       >) ?? (internalMutationGeneric as MutationBuilder<DataModel, "internal">)
     )({
-      args: migrationArgs,
+      args: {
+        ...migrationArgs,
+        args: v.optional(
+          (defineArgs ?? v.any()) as Validator<any, "required", any>,
+        ),
+      },
       handler: async (ctx, args) => {
         if (args.fn) {
           // This is a one-off execution from the CLI or dashboard.
@@ -363,6 +379,7 @@ export class Migrations<DataModel extends GenericDataModel> {
             const next = await migrateOne(
               ctx,
               doc as { _id: GenericId<TableName> },
+              args.args as any,
             );
             if (next && Object.keys(next).length > 0) {
               await ctx.db.patch(doc._id as GenericId<TableName>, next);
@@ -471,6 +488,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       cursor?: string | null;
       batchSize?: number;
       dryRun?: boolean;
+      args?: any;
     },
   ) {
     return ctx.runMutation(this.component.lib.migrate, {
@@ -479,6 +497,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       cursor: opts?.cursor,
       batchSize: opts?.batchSize,
       dryRun: opts?.dryRun ?? false,
+      args: opts?.args,
     });
   }
 
@@ -661,6 +680,7 @@ export async function runToCompletion(
      * It's helpful to see what it would do without committing the transaction.
      */
     dryRun?: boolean;
+    args?: any;
   },
 ): Promise<MigrationStatus> {
   let cursor = opts?.cursor;
@@ -668,6 +688,7 @@ export async function runToCompletion(
     name = getFunctionName(fnRef),
     batchSize,
     dryRun = false,
+    args,
   } = opts ?? {};
   const address = getFunctionAddress(fnRef);
   const fnHandle =
@@ -679,6 +700,7 @@ export async function runToCompletion(
       cursor,
       batchSize,
       dryRun,
+      args,
       oneBatchOnly: true,
     });
     if (status.isDone) {
