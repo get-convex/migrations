@@ -40,6 +40,16 @@ import type { MigrationFunctionHandle } from "../component/lib.js";
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
 
+/**
+ * When args are provided, append a deterministic serialization to the migration
+ * name so that each unique set of args is tracked as a separate migration run.
+ */
+function migrationNameWithArgs(baseName: string, args?: unknown): string {
+  if (args === undefined || args === null) return baseName;
+  const serialized = JSON.stringify(args, Object.keys(args as any).sort());
+  return `${baseName}(${serialized})`;
+}
+
 export class Migrations<DataModel extends GenericDataModel> {
   /**
    * Makes the migration wrapper, with types for your own tables.
@@ -168,7 +178,10 @@ export class Migrations<DataModel extends GenericDataModel> {
     fnRef?: MigrationFunctionReference,
     next?: { name: string; fnHandle: string }[],
   ) {
-    const name = args.fn ? this.prefixedName(args.fn) : getFunctionName(fnRef!);
+    const baseName = args.fn
+      ? this.prefixedName(args.fn)
+      : getFunctionName(fnRef!);
+    const name = migrationNameWithArgs(baseName, args.args);
     async function makeFn(fn: string) {
       try {
         return await createFunctionHandle(
@@ -492,8 +505,9 @@ export class Migrations<DataModel extends GenericDataModel> {
       args?: any;
     },
   ) {
+    const baseName = getFunctionName(fnRef);
     return ctx.runMutation(this.component.lib.migrate, {
-      name: getFunctionName(fnRef),
+      name: migrationNameWithArgs(baseName, opts?.args),
       fnHandle: await createFunctionHandle(fnRef),
       cursor: opts?.cursor,
       batchSize: opts?.batchSize,
@@ -686,11 +700,12 @@ export async function runToCompletion(
 ): Promise<MigrationStatus> {
   let cursor = opts?.cursor;
   const {
-    name = getFunctionName(fnRef),
+    name: nameOverride,
     batchSize,
     dryRun = false,
     args,
   } = opts ?? {};
+  const name = nameOverride ?? migrationNameWithArgs(getFunctionName(fnRef), args);
   const address = getFunctionAddress(fnRef);
   const fnHandle =
     address.functionHandle ?? (await createFunctionHandle(fnRef));

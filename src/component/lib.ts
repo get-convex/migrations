@@ -69,6 +69,7 @@ export const migrate = mutation({
           isDone: false,
           processed: 0,
           latestStart: Date.now(),
+          args: args.args,
         }),
       ))!;
 

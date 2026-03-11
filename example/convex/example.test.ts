@@ -92,4 +92,35 @@ describe("example", () => {
       );
     });
   });
+
+  test("same migration with different args runs independently", async () => {
+    const t = initConvexTest();
+    await t.mutation(internal.example.seed, { count: 10 });
+    // Run with first set of args
+    await t.run(async (ctx) => {
+      await runToCompletion(
+        ctx,
+        components.migrations,
+        internal.example.setConfiguredValue,
+        { args: { value: "first" } },
+      );
+    });
+    await t.run(async (ctx) => {
+      const after = await ctx.db.query("myTable").collect();
+      expect(after.every((doc) => doc.optionalField === "first")).toBe(true);
+    });
+    // Run with second set of args — should NOT no-op
+    await t.run(async (ctx) => {
+      await runToCompletion(
+        ctx,
+        components.migrations,
+        internal.example.setConfiguredValue,
+        { args: { value: "second" } },
+      );
+    });
+    await t.run(async (ctx) => {
+      const after = await ctx.db.query("myTable").collect();
+      expect(after.every((doc) => doc.optionalField === "second")).toBe(true);
+    });
+  });
 });
