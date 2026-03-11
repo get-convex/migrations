@@ -33,6 +33,16 @@ export const setConfiguredValue = migrations.define({
   },
 });
 
+export const setConfiguredValueWithHello = migrations.define({
+  table: "myTable",
+  args: { value: v.string() },
+  migrateOne: async (_ctx, doc, args) => {
+    if (doc.optionalField !== args.value) {
+      return { optionalField: args.value + "hello" };
+    }
+  },
+});
+
 export const clearField = migrations.define({
   table: "myTable",
   migrateOne: () => ({ optionalField: undefined }),
@@ -146,3 +156,9 @@ export const migrationsWithPrefix = new Migrations(components.migrations, {
 
 // Allows you to run `npx convex run example:runWithPrefix '{"fn":"setDefaultValue"}'`
 export const runWithPrefix = migrationsWithPrefix.runner();
+
+// A runner for a series that includes a migration with args.
+export const runSeriesWithArgs = migrations.runner([
+  internal.example.setConfiguredValue,
+  internal.example.setConfiguredValueWithHello,
+]);

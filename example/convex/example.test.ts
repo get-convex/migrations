@@ -132,6 +132,27 @@ describe("example", () => {
     });
   });
 
+  test("runner with a series passes args to each migration", async () => {
+    const t = initConvexTest();
+    await t.mutation(internal.example.seed, { count: 10 });
+    // Run the series runner with args — setDefaultValue runs first, then
+    // setConfiguredValue should receive the args.
+    await t.mutation(internal.example.runSeriesWithArgs, {
+      args: { value: "from-series" },
+    });
+    // Process all scheduled batches until both migrations complete.
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await t.run(async (ctx) => {
+      const after = await ctx.db.query("myTable").collect();
+      expect(after).toHaveLength(10);
+      // setDefaultValue should have run (fills undefined optionalField with "default")
+      // then setConfiguredValue should have overwritten all to "from-series"
+      expect(after.every((doc) => doc.optionalField === "from-series")).toBe(
+        true,
+      );
+    });
+  });
+
   test("args type is inferred from the migration definition", () => {
     // Type-level only test: verify that args for setConfiguredValue is inferred
     // as { value: string }, not `any`.

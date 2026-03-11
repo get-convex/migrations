@@ -152,7 +152,7 @@ export const migrate = mutation({
             const [nextFn, ...rest] = next.slice(i);
             if (nextFn) {
               await ctx.scheduler.runAfter(0, api.lib.migrate, {
-                name: nextFn.name,
+                name: migrationNameWithArgs(nextFn.name, nextFn.args),
                 fnHandle: nextFn.fnHandle,
                 args: nextFn.args,
                 next: rest,

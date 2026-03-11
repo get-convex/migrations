@@ -197,7 +197,7 @@ export class Migrations<DataModel extends GenericDataModel> {
     ctx: MutationCtx | ActionCtx,
     args: MigrationArgs,
     fnRef?: MigrationFunctionReference,
-    next?: { name: string; fnHandle: string }[],
+    next?: { name: string; fnHandle: string; args?: unknown }[],
   ) {
     const baseName = args.fn
       ? this.prefixedName(args.fn)
