@@ -1,4 +1,4 @@
-import { Migrations, type MigrationStatus } from "../../src/client/index.ts";
+import { Migrations, type MigrationStatus } from "@convex-dev/migrations";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api.js";
 import type { DataModel } from "./_generated/dataModel.js";
@@ -42,8 +42,8 @@ export const validateRequiredField = migrations.define({
   table: "myTable",
   // Specify a custom range to only include documents that need to change.
   // This is useful if you have a large dataset and only a small percentage of
-  // documents need to be migrated.
-  customRange: (query) =>
+  // documents need to be migrated. The second argument is the migration args.
+  customRange: (query, _args) =>
     query.withIndex("by_requiredField", (q) => q.eq("requiredField", "")),
   migrateOne: async (_ctx, doc) => {
     console.log("Needs fixup: " + doc._id);

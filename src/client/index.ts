@@ -287,6 +287,7 @@ export class Migrations<DataModel extends GenericDataModel> {
       | Promise<Partial<DocumentByName<DataModel, TableName>> | void>;
     customRange?: (
       q: QueryInitializer<NamedTableInfo<DataModel, TableName>>,
+      args: any,
     ) => OrderedQuery<NamedTableInfo<DataModel, TableName>>;
     batchSize?: number;
     parallelize?: boolean;
@@ -353,7 +354,7 @@ export class Migrations<DataModel extends GenericDataModel> {
         }
 
         const q = ctx.db.query(table);
-        const range = customRange ? customRange(q) : q;
+        const range = customRange ? customRange(q, args.args) : q;
         let continueCursor: string;
         let page: DocumentByName<DataModel, TableName>[];
         let isDone: boolean;

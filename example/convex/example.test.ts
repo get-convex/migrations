@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { initConvexTest } from "./setup.test";
 import { components, internal } from "./_generated/api";
-import { runToCompletion } from "../../src/client/index.ts";
+import { runToCompletion } from "@convex-dev/migrations";
 import { createFunctionHandle, getFunctionName } from "convex/server";
 
 describe("example", () => {
