@@ -132,16 +132,41 @@ export const clearField = migrations.define({
 // is equivalent to `await ctx.db.patch(doc._id, { optionalField: undefined })`
 ```
 
+### Runtime migration arguments
+
+If you need to configure a migration at run time, define validated args and
+consume them in `migrateOne`.
+
+```ts
+export const deleteByTag = migrations.define({
+  table: "events",
+  args: v.object({ tag: v.string() }),
+  migrateOne: async (ctx, doc, args) => {
+    if (doc.tags.includes(args.tag)) {
+      await ctx.db.delete(doc._id);
+    }
+  },
+});
+```
+
+Then pass `args` when starting the migration:
+
+```sh
+npx convex run migrations:run '{"fn": "migrations:deleteByTag", "args": {"tag": "important"}}'
+```
+
 ### Migrating a subset of a table using an index
 
 If you only want to migrate a range of documents, you can avoid processing the
 whole table by specifying a `customRange`. You can use any existing index you
-have on the table, or the built-in `by_creation_time` index.
+have on the table, or the built-in `by_creation_time` index. The `customRange`
+callback receives `(query, args)` so you can parameterize the range using
+migration args passed from the CLI or runner.
 
 ```ts
 export const validateRequiredField = migrations.define({
   table: "myTable",
-  customRange: (query) =>
+  customRange: (query, _args) =>
     query.withIndex("by_requiredField", (q) => q.eq("requiredField", "")),
   migrateOne: async (_ctx, doc) => {
     console.log("Needs fixup: " + doc._id);

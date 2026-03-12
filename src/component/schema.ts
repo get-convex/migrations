@@ -12,6 +12,8 @@ export default defineSchema({
     processed: v.number(),
     latestStart: v.number(),
     latestEnd: v.optional(v.number()),
+    // Runtime args passed to the migration.
+    args: v.optional(v.any()),
   })
     .index("name", ["name"])
     .index("isDone", ["isDone"]),

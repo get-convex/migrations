@@ -6,6 +6,7 @@ export const migrationArgs = {
   batchSize: v.optional(v.number()),
   dryRun: v.optional(v.boolean()),
   next: v.optional(v.array(v.string())),
+  args: v.optional(v.any()),
 };
 export type MigrationArgs = ObjectType<typeof migrationArgs>;
 

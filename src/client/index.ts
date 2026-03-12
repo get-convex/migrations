@@ -25,13 +25,50 @@ import {
 } from "../shared.js";
 export type { MigrationArgs, MigrationResult, MigrationStatus };
 
-import { ConvexError, type GenericId } from "convex/values";
+import {
+  ConvexError,
+  type GenericId,
+  type ObjectType,
+  type PropertyValidators,
+  v,
+} from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
+import {
+  migrationNameWithArgs,
+  type MigrationFunctionHandle,
+} from "../component/lib.js";
 import { logStatusAndInstructions } from "./log.js";
-import type { MigrationFunctionHandle } from "../component/lib.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
+
+/**
+ * Infer the TypeScript type from an args validator definition.
+ * - If a single Validator (e.g. `v.object({...})`), use `Infer<T>`.
+ * - If PropertyValidators (e.g. `{ tag: v.string() }`), use `ObjectType<T>`.
+ * - If void/undefined (no args defined), the args type is `undefined`.
+ */
+type InferMigrationArgs<T> = T extends PropertyValidators
+  ? ObjectType<T>
+  : undefined;
+
+/**
+ * MigrationArgs with the `args` field typed to a specific type.
+ */
+type MigrationArgsWithTypedArgs<Args> = Omit<MigrationArgs, "args"> & {
+  args?: Args;
+};
+
+/**
+ * Extract the migration-specific args type from a function reference.
+ * Falls back to `any` for untyped migration references.
+ */
+type ExtractMigrationArgs<Ref> =
+  Ref extends FunctionReference<any, any, infer A, any>
+    ? A extends { args?: infer MArgs }
+      ? MArgs
+      : undefined
+    : any;
 
 export class Migrations<DataModel extends GenericDataModel> {
   /**
@@ -136,6 +173,7 @@ export class Migrations<DataModel extends GenericDataModel> {
                 specificMigrationOrSeries.slice(1).map(async (fnRef) => ({
                   name: getFunctionName(fnRef),
                   fnHandle: await createFunctionHandle(fnRef),
+                  args: args.args,
                 })),
               ),
             ]
@@ -159,9 +197,12 @@ export class Migrations<DataModel extends GenericDataModel> {
     ctx: MutationCtx | ActionCtx,
     args: MigrationArgs,
     fnRef?: MigrationFunctionReference,
-    next?: { name: string; fnHandle: string }[],
+    next?: { name: string; fnHandle: string; args?: unknown }[],
   ) {
-    const name = args.fn ? this.prefixedName(args.fn) : getFunctionName(fnRef!);
+    const baseName = args.fn
+      ? this.prefixedName(args.fn)
+      : getFunctionName(fnRef!);
+    const name = migrationNameWithArgs(baseName, args.args);
     async function makeFn(fn: string) {
       try {
         return await createFunctionHandle(
@@ -197,6 +238,7 @@ export class Migrations<DataModel extends GenericDataModel> {
         batchSize: args.batchSize,
         next,
         dryRun: args.dryRun ?? false,
+        args: args.args,
       });
     } catch (e) {
       if (
@@ -260,26 +302,33 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param parallelize - If true, each migration batch will be run in parallel.
    * @returns An internal mutation that runs the migration.
    */
-  define<TableName extends TableNamesInDataModel<DataModel>>({
+  define<
+    TableName extends TableNamesInDataModel<DataModel>,
+    ArgsValidator extends PropertyValidators | void = void,
+  >({
     table,
     migrateOne,
     customRange,
     batchSize: functionDefaultBatchSize,
     parallelize,
+    args: defineArgs,
   }: {
     table: TableName;
     migrateOne: (
       ctx: GenericMutationCtx<DataModel>,
       doc: DocumentByName<DataModel, TableName> & { _id: GenericId<TableName> },
+      args: InferMigrationArgs<ArgsValidator>,
     ) =>
       | void
       | Partial<DocumentByName<DataModel, TableName>>
       | Promise<Partial<DocumentByName<DataModel, TableName>> | void>;
     customRange?: (
       q: QueryInitializer<NamedTableInfo<DataModel, TableName>>,
+      args: InferMigrationArgs<ArgsValidator>,
     ) => OrderedQuery<NamedTableInfo<DataModel, TableName>>;
     batchSize?: number;
     parallelize?: boolean;
+    args?: ArgsValidator;
   }) {
     const defaultBatchSize =
       functionDefaultBatchSize ??
@@ -293,7 +342,13 @@ export class Migrations<DataModel extends GenericDataModel> {
         "internal"
       >) ?? (internalMutationGeneric as MutationBuilder<DataModel, "internal">)
     )({
-      args: migrationArgs,
+      args: {
+        ...migrationArgs,
+        args:
+          defineArgs == null || Object.keys(defineArgs).length === 0
+            ? v.optional(v.object({}))
+            : v.object(defineArgs),
+      },
       handler: async (ctx, args) => {
         if (args.fn) {
           // This is a one-off execution from the CLI or dashboard.
@@ -337,7 +392,9 @@ export class Migrations<DataModel extends GenericDataModel> {
         }
 
         const q = ctx.db.query(table);
-        const range = customRange ? customRange(q) : q;
+        const range = customRange
+          ? customRange(q, args.args as InferMigrationArgs<ArgsValidator>)
+          : q;
         let continueCursor: string;
         let page: DocumentByName<DataModel, TableName>[];
         let isDone: boolean;
@@ -363,6 +420,7 @@ export class Migrations<DataModel extends GenericDataModel> {
             const next = await migrateOne(
               ctx,
               doc as { _id: GenericId<TableName> },
+              args.args as any,
             );
             if (next && Object.keys(next).length > 0) {
               await ctx.db.patch(doc._id as GenericId<TableName>, next);
@@ -428,6 +486,10 @@ export class Migrations<DataModel extends GenericDataModel> {
       "internal",
       MigrationArgs,
       Promise<MigrationResult>
+    > as RegisteredMutation<
+      "internal",
+      MigrationArgsWithTypedArgs<InferMigrationArgs<ArgsValidator>>,
+      Promise<MigrationResult>
     >;
   }
 
@@ -464,21 +526,24 @@ export class Migrations<DataModel extends GenericDataModel> {
    * @param opts.dryRun If true, it will run a batch and then throw an error.
    *   It's helpful to see what it would do without committing the transaction.
    */
-  async runOne(
+  async runOne<Ref extends MigrationFunctionReference>(
     ctx: MutationCtx | ActionCtx,
-    fnRef: MigrationFunctionReference,
+    fnRef: Ref,
     opts?: {
       cursor?: string | null;
       batchSize?: number;
       dryRun?: boolean;
+      args?: ExtractMigrationArgs<Ref>;
     },
   ) {
+    const baseName = getFunctionName(fnRef);
     return ctx.runMutation(this.component.lib.migrate, {
-      name: getFunctionName(fnRef),
+      name: migrationNameWithArgs(baseName, opts?.args),
       fnHandle: await createFunctionHandle(fnRef),
       cursor: opts?.cursor,
       batchSize: opts?.batchSize,
       dryRun: opts?.dryRun ?? false,
+      args: opts?.args,
     });
   }
 
@@ -636,10 +701,12 @@ export type MigrationFunctionReference = FunctionReference<
  * @param opts Options to start the migration.
  *   It's helpful to see what it would do without committing the transaction.
  */
-export async function runToCompletion(
+export async function runToCompletion<
+  Ref extends MigrationFunctionReference | MigrationFunctionHandle,
+>(
   ctx: ActionCtx,
   component: ComponentApi,
-  fnRef: MigrationFunctionReference | MigrationFunctionHandle,
+  fnRef: Ref,
   opts?: {
     /**
      * The name of the migration function, generated with getFunctionName.
@@ -661,14 +728,13 @@ export async function runToCompletion(
      * It's helpful to see what it would do without committing the transaction.
      */
     dryRun?: boolean;
+    args?: ExtractMigrationArgs<Ref>;
   },
 ): Promise<MigrationStatus> {
   let cursor = opts?.cursor;
-  const {
-    name = getFunctionName(fnRef),
-    batchSize,
-    dryRun = false,
-  } = opts ?? {};
+  const { name: nameOverride, batchSize, dryRun = false, args } = opts ?? {};
+  const name =
+    nameOverride ?? migrationNameWithArgs(getFunctionName(fnRef), args);
   const address = getFunctionAddress(fnRef);
   const fnHandle =
     address.functionHandle ?? (await createFunctionHandle(fnRef));
@@ -679,6 +745,7 @@ export async function runToCompletion(
       cursor,
       batchSize,
       dryRun,
+      args,
       oneBatchOnly: true,
     });
     if (status.isDone) {

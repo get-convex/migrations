@@ -33,10 +33,12 @@ const runMigrationArgs = {
       v.object({
         name: v.string(),
         fnHandle: v.string(),
+        args: v.optional(v.any()),
       }),
     ),
   ),
   dryRun: v.boolean(),
+  args: v.optional(v.any()),
 };
 
 export const migrate = mutation({
@@ -68,6 +70,7 @@ export const migrate = mutation({
           isDone: false,
           processed: 0,
           latestStart: Date.now(),
+          args: args.args,
         }),
       ))!;
 
@@ -116,6 +119,7 @@ export const migrate = mutation({
             cursor: state.cursor,
             batchSize,
             dryRun,
+            args: args.args,
           },
         );
         updateState(result);
@@ -140,14 +144,17 @@ export const migrate = mutation({
         for (; i < next.length; i++) {
           const doc = await ctx.db
             .query("migrations")
-            .withIndex("name", (q) => q.eq("name", next[i]!.name))
+            .withIndex("name", (q) =>
+              q.eq("name", migrationNameWithArgs(next[i]!.name, next[i]!.args)),
+            )
             .unique();
           if (!doc || !doc.isDone) {
             const [nextFn, ...rest] = next.slice(i);
             if (nextFn) {
               await ctx.scheduler.runAfter(0, api.lib.migrate, {
-                name: nextFn.name,
+                name: migrationNameWithArgs(nextFn.name, nextFn.args),
                 fnHandle: nextFn.fnHandle,
+                args: nextFn.args,
                 next: rest,
                 batchSize,
                 dryRun,
@@ -351,3 +358,16 @@ export const clearAll = mutation({
     }
   },
 });
+
+/**
+ * When args are provided, append a deterministic serialization to the migration
+ * name so that each unique set of args is tracked as a separate migration run.
+ */
+export function migrationNameWithArgs(
+  baseName: string,
+  args?: unknown,
+): string {
+  if (args === undefined || args === null) return baseName;
+  const serialized = JSON.stringify(args, Object.keys(args as any).sort());
+  return `${baseName}(${serialized})`;
+}

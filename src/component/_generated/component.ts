@@ -89,12 +89,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          args?: any;
           batchSize?: number;
           cursor?: string | null;
           dryRun: boolean;
           fnHandle: string;
           name: string;
-          next?: Array<{ fnHandle: string; name: string }>;
+          next?: Array<{ args?: any; fnHandle: string; name: string }>;
           oneBatchOnly?: boolean;
         },
         {

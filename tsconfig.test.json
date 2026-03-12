@@ -1,5 +1,11 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@convex-dev/migrations": ["./src/client/index.ts"]
+    }
+  },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",

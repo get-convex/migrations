@@ -23,6 +23,26 @@ export const setDefaultValue = migrations.define({
   parallelize: true,
 });
 
+export const setConfiguredValue = migrations.define({
+  table: "myTable",
+  args: { value: v.string() },
+  migrateOne: async (_ctx, doc, args) => {
+    if (doc.optionalField !== args.value) {
+      return { optionalField: args.value };
+    }
+  },
+});
+
+export const setConfiguredValueWithHello = migrations.define({
+  table: "myTable",
+  args: { value: v.string() },
+  migrateOne: async (_ctx, doc, args) => {
+    if (doc.optionalField !== args.value) {
+      return { optionalField: args.value + "hello" };
+    }
+  },
+});
+
 export const clearField = migrations.define({
   table: "myTable",
   migrateOne: () => ({ optionalField: undefined }),
@@ -32,8 +52,8 @@ export const validateRequiredField = migrations.define({
   table: "myTable",
   // Specify a custom range to only include documents that need to change.
   // This is useful if you have a large dataset and only a small percentage of
-  // documents need to be migrated.
-  customRange: (query) =>
+  // documents need to be migrated. The second argument is the migration args.
+  customRange: (query, _args) =>
     query.withIndex("by_requiredField", (q) => q.eq("requiredField", "")),
   migrateOne: async (_ctx, doc) => {
     console.log("Needs fixup: " + doc._id);
@@ -136,3 +156,9 @@ export const migrationsWithPrefix = new Migrations(components.migrations, {
 
 // Allows you to run `npx convex run example:runWithPrefix '{"fn":"setDefaultValue"}'`
 export const runWithPrefix = migrationsWithPrefix.runner();
+
+// A runner for a series that includes a migration with args.
+export const runSeriesWithArgs = migrations.runner([
+  internal.example.setConfiguredValue,
+  internal.example.setConfiguredValueWithHello,
+]);
