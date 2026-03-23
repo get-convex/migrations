@@ -76,6 +76,21 @@ describe("migrate", () => {
   });
 });
 
+export const inProgressMigration = mutation({
+  handler: async (_, _args: MigrationArgs): Promise<MigrationResult> => {
+    // Simulates a migration that processes 10 items and needs to continue
+    return {
+      isDone: false,
+      continueCursor: "cursor_after_10",
+      processed: 10,
+    };
+  },
+});
+
+const inProgressApi: ApiFromModules<{
+  fns: { inProgressMigration: typeof inProgressMigration };
+}>["fns"] = anyApi["lib.test"] as any;
+
 describe("cancel", () => {
   test("throws error if migration not found", async () => {
     // For cancel, ConvexTest-like patterns would be similar – this code demonstrates minimal direct call
@@ -83,6 +98,73 @@ describe("cancel", () => {
     await expect(
       t.mutation(api.lib.cancel, { name: "nonexistent" }),
     ).rejects.toThrow();
+  });
+
+  test("cancel calls scheduler.cancel when workerId exists", async () => {
+    const t = convexTest(schema, modules);
+    const fnHandle = await createFunctionHandle(
+      inProgressApi.inProgressMigration,
+    );
+
+    // Start migration with oneBatchOnly=false so it schedules next batch
+    const result = await t.mutation(api.lib.migrate, {
+      name: "testCancelMigration",
+      fnHandle: fnHandle,
+      dryRun: false,
+      oneBatchOnly: false,
+    });
+
+    expect(result.state).toBe("inProgress");
+    expect(result.isDone).toBe(false);
+
+    // Cancel it
+    const cancelResult = await t.mutation(api.lib.cancel, {
+      name: "testCancelMigration",
+    });
+    expect(cancelResult.state).toBe("canceled");
+
+    // Verify getStatus also shows canceled
+    const status = await t.query(api.lib.getStatus, {
+      names: ["testCancelMigration"],
+    });
+    expect(status[0]?.state).toBe("canceled");
+  });
+
+  test("canceled migration can be restarted", async () => {
+    const t = convexTest(schema, modules);
+    const fnHandle = await createFunctionHandle(testApi.doneMigration);
+
+    // Create a migration with a canceled scheduled function
+    await t.run(async (ctx) => {
+      const workerId = await ctx.scheduler.runAfter(
+        0,
+        testApi.doneMigration,
+        {},
+      );
+      await ctx.scheduler.cancel(workerId);
+      await ctx.db.insert("migrations", {
+        name: "testRestartCanceled",
+        latestStart: Date.now(),
+        workerId,
+        isDone: false,
+        cursor: "old_cursor",
+        processed: 25,
+      });
+      const [status] = await ctx.runQuery(api.lib.getStatus, {
+        names: ["testRestartCanceled"],
+      });
+      expect(status?.state).toBe("canceled");
+    });
+
+    // Restart without a cursor
+    const result = await t.mutation(api.lib.migrate, {
+      name: "testRestartCanceled",
+      fnHandle: fnHandle,
+      dryRun: false,
+    });
+
+    expect(result.state).toBe("success");
+    expect(result.isDone).toBe(true);
   });
 });
 
