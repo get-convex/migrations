@@ -299,8 +299,8 @@ async function cancelMigration(ctx: MutationCtx, migration: Doc<"migrations">) {
     return state;
   }
   if (state.state === "inProgress") {
-    if (!migration.workerId) {
-      await ctx.scheduler.cancel(migration.workerId!);
+    if (migration.workerId) {
+      await ctx.scheduler.cancel(migration.workerId);
     }
     console.log(`Canceled migration ${migration.name}`);
     return { ...state, state: "canceled" as const };
