@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Fixes the cancel functionality for ongoing migrations
+
 ## 0.3.1
 
 - Adds `runToCompletion` which can run a migration synchronously from an action,
