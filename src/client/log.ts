@@ -8,6 +8,7 @@ export function logStatusAndInstructions(
     cursor?: string | null;
     batchSize?: number;
     dryRun?: boolean;
+    reset?: boolean;
   },
 ) {
   const output: Record<string, unknown> = {};
@@ -62,7 +63,12 @@ export function logStatusAndInstructions(
         prod: `--prod`,
       };
     } else {
-      output["toStartOver"] = JSON.stringify({ ...args, cursor: null });
+      // Suggest reset: true instead of cursor: null
+      const { cursor: _cursor, ...argsWithoutCursor } = args;
+      output["toStartOver"] = JSON.stringify({
+        ...argsWithoutCursor,
+        reset: true,
+      });
       if (status.next?.length) {
         output["toMonitorStatus"] = {
           cmd: `${run} --watch lib:getStatus`,
