@@ -36,7 +36,6 @@ const testApi: ApiFromModules<{
     doneMigration: typeof doneMigration;
     doneMigration2: typeof doneMigration2;
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }>["fns"] = anyApi["lib.test"] as any;
 
 describe("migrate", () => {
