@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3
+
+- Adds a `reset: true` argument to restart all specified migrations
+
 ## 0.3.2
 
 - Fixes the cancel functionality for ongoing migrations
