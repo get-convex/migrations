@@ -65,11 +65,8 @@ Run `npm create convex` or follow any of the
 Install the component package:
 
 ```ts
-npm install @convex-dev/migrations convex-helpers
+npm install @convex-dev/migrations
 ```
-
-The `convex-helpers` package is a peer dependency that provides improved
-pagination support, especially for component migrations.
 
 Create a `convex.config.ts` file in your app's `convex/` folder and install the
 component by calling `use`:
