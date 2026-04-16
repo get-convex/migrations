@@ -1,5 +1,7 @@
 import {
   createFunctionHandle,
+  defineSchema,
+  defineTable,
   type DocumentByName,
   type FunctionReference,
   type GenericActionCtx,
@@ -132,11 +134,9 @@ export class Migrations<DataModel extends GenericDataModel> {
        */
       migrationsLocationPrefix?: string;
       /**
-       * The schema for your database. Required when running migrations
-       * in a Convex component (where built-in pagination is not available).
-       *
-       * When provided, enables the improved paginator from convex-helpers
-       * which works in components and supports multiple pagination calls.
+       * The schema for your database. When provided, it enables the improved
+       * paginator from convex-helpers and provides types for your tables.
+       * Required when running migrations in a Convex component.
        *
        * ```ts
        * import schema from "./schema.js";
@@ -405,19 +405,26 @@ export class Migrations<DataModel extends GenericDataModel> {
           args.cursor !== undefined &&
           !isNewFormatCursor(args.cursor);
 
-        // Use paginator when:
-        // - Schema is provided (required for components)
-        // - Cursor is new format or starting fresh
-        // Note: paginator is compatible with customRange (same query builder API)
-        const useNewPaginator =
-          this.options?.schema && !cursorIsOldFormat;
+        // Use paginator when cursor is compatible.
+        // Falls back to built-in db.query for old-format cursors from
+        // in-progress migrations that started before the paginator was used.
+        const useNewPaginator = !cursorIsOldFormat;
+        if (useNewPaginator && customRange && !this.options?.schema) {
+          throw new Error(
+            `You must provide your schema to use a custom range.`,
+          );
+        }
+        const paginatorSchema =
+          this.options?.schema ?? defineSchema({ [table]: defineTable({}) });
 
         // Build the query using either paginator or built-in db.query
         // Both implement compatible QueryInitializer interfaces
         const q = useNewPaginator
-          ? (paginator(ctx.db as any, this.options!.schema as any).query(
+          ? (paginator(ctx.db as any, paginatorSchema).query(
               table,
-            ) as unknown as QueryInitializer<NamedTableInfo<DataModel, TableName>>)
+            ) as unknown as QueryInitializer<
+              NamedTableInfo<DataModel, TableName>
+            >)
           : ctx.db.query(table);
         const range = customRange ? customRange(q) : q;
         let continueCursor: string;
