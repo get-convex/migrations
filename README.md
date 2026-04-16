@@ -96,7 +96,6 @@ import { components } from "./_generated/api.js";
 import { DataModel } from "./_generated/dataModel.js";
 
 export const migrations = new Migrations<DataModel>(components.migrations);
-export const run = migrations.runner();
 ```
 
 The type parameter `DataModel` is optional. It provides type safety for
@@ -165,24 +164,13 @@ The simplest way to run a migration is to call it directly:
 npx convex run migrations:setDefaultValue
 ```
 
-The migration auto-detects its own function name, so no extra arguments are
-needed. Pass `--prod` to run in production.
+Pass `--prod` to run in production.
 
 Running it from the dashboard:
 
 ![Dashboard screenshot](./dashboard_screenshot.png)
 
-You can also define a one-off runner for a specific migration:
-
-```ts
-export const runIt = migrations.runner(internal.migrations.setDefaultValue);
-```
-
-```sh
-npx convex run migrations:runIt
-```
-
-Or expose a general-purpose runner that accepts any migration by name:
+You can also define a general-purpose runner that accepts a migration by name:
 
 ```ts
 export const run = migrations.runner();
@@ -224,7 +212,7 @@ should run on the next deployment.
 
 ### Using the Dashboard or CLI
 
-You can also pass a list of migrations to `runner` to have it run a series of
+You can pass a list of migrations to `runner` to have it run a series of
 migrations instead of just one:
 
 ```ts
@@ -241,11 +229,11 @@ Then just run:
 npx convex run migrations:runAll # migrations:runAll is equivalent to convex/migrations.ts:runAll on the CLI
 ```
 
-With the `runner` functions, you can pass a "next" argument to run a series of
-migrations after the first:
+When calling a migration directly, or with the `runner` functions, you can pass
+a "next" argument to run a series of migrations after the first:
 
 ```sh
-npx convex run migrations:runIt '{next:["migrations:clearField"]}'
+npx convex run migrations:setDefaultValue '{next:["migrations:clearField"]}'
 # OR
 npx convex run migrations:run '{fn: "migrations:setDefaultValue", next:["migrations:clearField"]}'
 ```
@@ -284,28 +272,30 @@ Before running a migration that may irreversibly change data, you can validate a
 batch by passing `dryRun` to any `runner` or `runOne` command:
 
 ```sh
-npx convex run migrations:runIt '{dryRun: true}'
+npx convex run migrations:setDefaultValue '{dryRun: true}'
 ```
 
 ### Restart a migration
 
-Pass `reset: true` to force a migration to start over from the beginning. This
+Pass `reset: true` to force a migration to start over from the beginning.
+
+```sh
+npx convex run migrations:setDefaultValue '{reset: true}'
+```
+
+If you specify `next` or run a defined series of migrations, this
 will reset the cursor for all migrations in the group.
 
 ```sh
-npx convex run migrations:runIt '{reset: true}'
-```
-
-Alternatively, you can pass `null` for the `cursor` to restart just the current
-migration:
-
-```sh
-npx convex run migrations:runIt '{cursor: null}'
+npx convex run migrations:runAll '{reset: true}'
 ```
 
 You can also pass in any valid cursor to start from. You can find valid cursors
 in the response of calls to `getStatus`. This can allow retrying a migration
 from a known good point as you iterate on the code.
+
+Note: if you're starting a migration from a specific cursor from the CLI or
+dashboard, do not pass `dryRun: false` explicitly, leave it undefined.
 
 ### Stop a migration
 
@@ -414,23 +404,18 @@ await migrations.runOne(ctx, internal.migrations.clearField, {
 
 ### Automatic bandwidth management
 
-Migrations automatically monitor transaction bandwidth usage during batch
-processing. If a transaction exceeds 50% utilization on any metric (bytes
-read/written, documents read/written, etc.), the batch short-circuits early and
-retries the remaining documents in the next batch.
+Migrations monitor transaction bandwidth usage during batch processing. If a
+batch approaches
+[transaction limits](https://docs.convex.dev/production/state/limits#transactions),
+it may stop early and let the remaining documents be picked up in the next
+batch.
 
-This prevents hitting
-[transaction limits](https://docs.convex.dev/production/state/limits#transactions)
-when your `migrateOne` function performs expensive operations (reading related
-documents, writing to multiple tables, etc.). You'll see a log message like:
-
-```
-Short-circuiting batch after processing 30/100 documents due to transaction
-limits. 70 documents will be retried in the next batch.
-```
+This helps avoid hitting limits when your `migrateOne` function performs
+expensive operations (reading related documents, writing to multiple tables,
+etc.).
 
 This works automatically with no configuration needed. If you frequently see
-short-circuiting, consider reducing the batch size for that migration.
+batches ending early, consider reducing the batch size for that migration.
 
 **Note**: bandwidth monitoring is only available for sequential (non-parallel)
 batch processing.

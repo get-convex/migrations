@@ -45,8 +45,6 @@ export class Migrations<DataModel extends GenericDataModel> {
    * import { internalMutation } from "./_generated/server";
    *
    * export const migrations = new Migrations(components.migrations, { internalMutation });
-   * // the private mutation to run migrations.
-   * export const run = migrations.runner();
    *
    * export const myMigration = migrations.define({
    *  table: "users",
@@ -57,7 +55,7 @@ export class Migrations<DataModel extends GenericDataModel> {
    * ```
    * You can then run it from the CLI or dashboard:
    * ```sh
-   * npx convex run migrations:run '{"fn": "migrations:myMigration"}'
+   * npx convex run migrations:myMigration
    * ```
    * For starting a migration from code, see {@link runOne}/{@link runSerially}.
    * @param component - The migrations component. It will be on components.migrations
@@ -95,6 +93,8 @@ export class Migrations<DataModel extends GenericDataModel> {
   ) {}
 
   /**
+   * @deprecated You can now start migrations by calling them directly
+   *
    * Creates a migration runner that can be called from the CLI or dashboard.
    *
    * For starting a migration from code, see {@link runOne}/{@link runSerially}.
@@ -235,23 +235,18 @@ export class Migrations<DataModel extends GenericDataModel> {
    * You can run this manually from the CLI or dashboard:
    * ```sh
    * # Start or resume a migration. No-ops if it's already done:
-   * npx convex run migrations:run '{"fn": "migrations:foo"}'
+   * npx convex run migrations:foo
    *
    * # Restart a migration from the beginning (also resets next migrations):
-   * npx convex run migrations:run '{"fn": "migrations:foo", "reset": true }'
+   * npx convex run migrations:foo '{reset: true}'
    *
-   * # Dry run - runs one batch but doesn't schedule or commit changes.
+   * # Dry run - runs one batch but doesn't schedule or commit changes,
    * # so you can see what it would do without committing the transaction.
-   * npx convex run migrations:run '{"fn": "migrations:foo", "dryRun": true}'
-   * # or
-   * npx convex run migrations:myMigration '{"dryRun": true}'
+   * npx convex run migrations:foo '{dryRun: true}'
    *
    * # Run many migrations serially:
-   * npx convex run migrations:run '{"fn": "migrations:foo", "next": ["migrations:bar", "migrations:baz"] }'
+   * npx convex run migrations:foo '{next: ["migrations:bar", "migrations:baz"]}'
    * ```
-   *
-   * The fn is the string form of the function reference. See:
-   * https://docs.convex.dev/functions/query-functions#query-names
    *
    * See {@link runOne} and {@link runSerially} for programmatic use.
    *
@@ -298,27 +293,40 @@ export class Migrations<DataModel extends GenericDataModel> {
     )({
       args: migrationArgs,
       handler: async (ctx, args) => {
-        if (args.fn) {
-          // This is a one-off execution from the CLI or dashboard.
-          // While not the recommended appproach, it's helpful for one-offs and
-          // compatibility with the old way of running migrations.
-
-          return (await this._runInteractive(ctx, args)) as any;
-        } else if (args.next?.length) {
-          throw new Error("You can only pass next if you also provide fn");
-        } else if (
+        // Auto-detect function name for direct CLI/dashboard invocation.
+        // The component always provides cursor and dryRun when scheduling
+        // batches, so if either is missing this is a direct invocation.
+        if (
+          args.fn ||
+          args.next ||
           args.cursor === undefined ||
           args.cursor === "" ||
           args.dryRun === undefined ||
           args.batchSize === 0
         ) {
-          console.warn(
-            "Running this from the CLI or dashboard? Here's some args to use:",
-          );
-          console.warn({
-            "Dry run": '{ "dryRun": true, "reset": true }',
-            "For real": '{ "fn": "path/to/migrations:yourFnName" }',
-          });
+          if (args.cursor === "" || args.batchSize === 0) {
+            console.warn(
+              "Running this from the CLI or dashboard? Here's some args to use:",
+            );
+            console.warn({
+              "Dry run": '{ "dryRun": true, "reset": true }',
+              "For real": "{}",
+            });
+            return;
+          }
+          const metadata = await getFunctionMetadata();
+          if (args.fn && this.prefixedName(args.fn) !== metadata.name) {
+            throw new Error(
+              `Function name mismatch: expected ${metadata.name}, got ${args.fn}. Hint: you can `,
+            );
+          }
+          return (await this._runInteractive(
+            ctx,
+            args,
+            makeFunctionReference(
+              metadata.name,
+            ) as unknown as MigrationFunctionReference,
+          )) as any;
         }
 
         const numItems = args.batchSize || defaultBatchSize;
