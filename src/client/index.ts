@@ -1,5 +1,6 @@
 import {
   createFunctionHandle,
+  type DataModelFromSchemaDefinition,
   defineSchema,
   defineTable,
   type DocumentByName,
@@ -18,6 +19,7 @@ import {
   type QueryInitializer,
   type RegisteredMutation,
   type SchemaDefinition,
+  type TableDefinition,
   type TableNamesInDataModel,
 } from "convex/server";
 import { paginator } from "convex-helpers/server/pagination";
@@ -34,50 +36,19 @@ import type { ComponentApi } from "../component/_generated/component.js";
 import { logStatusAndInstructions } from "./log.js";
 import type { MigrationFunctionHandle } from "../component/lib.js";
 
-/**
- * Detects if a cursor is in the new paginator format (JSON array starting with "[")
- * or old built-in format (encrypted opaque string).
- *
- * New format cursors from convex-helpers paginator are JSON-serialized arrays like:
- * '["value", 1234567890, "documentId"]'
- *
- * Old format cursors from built-in .paginate() are encrypted opaque strings.
- *
- * @returns true if this is a new-format cursor (or null for starting fresh)
- */
-export function isNewFormatCursor(cursor: string | null): boolean {
-  if (cursor === null) return true;
-  return typeof cursor === "string" && cursor.startsWith("[");
-}
-
-/**
- * Type helper for schema parameter in Migrations constructor.
- * Use this to ensure your schema is compatible with the DataModel.
- *
- * When using Migrations in a Convex component, you must pass your schema
- * to enable pagination (required for components).
- *
- * @example
- * ```ts
- * import schema from "./schema.js";
- * import type { DataModel } from "./_generated/dataModel.js";
- *
- * const migrations = new Migrations<DataModel>(components.migrations, {
- *   schema: schema as SchemaForDataModel<DataModel>,
- * });
- * ```
- */
-export type SchemaForDataModel<DM extends GenericDataModel> =
-  SchemaDefinition<any, boolean> & {
-    // Branded type to document that this schema should produce a compatible DataModel.
-    // The actual type checking happens when paginator is called.
-    __dataModel?: DM;
-  };
-
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
 
-export class Migrations<DataModel extends GenericDataModel> {
+export class Migrations<
+  DM extends GenericDataModel,
+  Schema extends SchemaDefinition<any, boolean> | void = void,
+  DataModel extends GenericDataModel = Schema extends SchemaDefinition<
+    any,
+    boolean
+  >
+    ? DataModelFromSchemaDefinition<Schema>
+    : DM,
+> {
   /**
    * Makes the migration wrapper, with types for your own tables.
    *
@@ -146,7 +117,7 @@ export class Migrations<DataModel extends GenericDataModel> {
        * });
        * ```
        */
-      schema?: SchemaForDataModel<DataModel>;
+      schema?: Schema;
     },
   ) {}
 
@@ -414,8 +385,11 @@ export class Migrations<DataModel extends GenericDataModel> {
             `You must provide your schema to use a custom range.`,
           );
         }
-        const paginatorSchema =
-          this.options?.schema ?? defineSchema({ [table]: defineTable({}) });
+        const paginatorSchema = (this.options?.schema ??
+          defineSchema({ [table]: defineTable({}) })) as SchemaDefinition<
+          Record<TableName, TableDefinition>,
+          true
+        >;
 
         // Build the query using either paginator or built-in db.query
         // Both implement compatible QueryInitializer interfaces
@@ -790,6 +764,22 @@ export async function runToCompletion(
     }
     cursor = status.cursor;
   }
+}
+
+/**
+ * Detects if a cursor is in the new paginator format (JSON array starting with "[")
+ * or old built-in format (encrypted opaque string).
+ *
+ * New format cursors from convex-helpers paginator are JSON-serialized arrays like:
+ * '["value", 1234567890, "documentId"]'
+ *
+ * Old format cursors from built-in .paginate() are encrypted opaque strings.
+ *
+ * @returns true if this is a new-format cursor (or null for starting fresh)
+ */
+export function isNewFormatCursor(cursor: string | null): boolean {
+  if (cursor === null) return true;
+  return typeof cursor === "string" && cursor.startsWith("[");
 }
 
 /* Type utils follow */
