@@ -461,16 +461,16 @@ built-in pagination is not available in component contexts.
 
 ```ts
 // Inside your component's convex folder (e.g., myComponent/example.ts)
-import { Migrations, type SchemaForDataModel } from "@convex-dev/migrations";
+import { Migrations } from "@convex-dev/migrations";
 import { components } from "./_generated/api.js";
 import type { DataModel } from "./_generated/dataModel.js";
 import { internalMutation } from "./_generated/server.js";
 import schema from "./schema.js";
 
 // Required for component migrations: pass your schema
-export const migrations = new Migrations<DataModel>(components.migrations, {
+export const migrations = new Migrations(components.migrations, {
   internalMutation,
-  schema: schema as SchemaForDataModel<DataModel>,
+  schema,
 });
 
 export const run = migrations.runner();
