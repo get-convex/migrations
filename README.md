@@ -96,13 +96,15 @@ examples below from `internal.migrations.*` to your new file name, like
 ```ts
 import { Migrations } from "@convex-dev/migrations";
 import { components } from "./_generated/api.js";
-import { DataModel } from "./_generated/dataModel.js";
+import schema from "./_generated/schema.js";
 
-export const migrations = new Migrations<DataModel>(components.migrations);
+export const migrations = new Migrations(components.migrations, { schema });
 ```
 
-The type parameter `DataModel` is optional. It provides type safety for
-migration definitions. As always, database operations in migrations will abide
+The `schema` provides type safety for migration definitions and support
+for pagination over custom indexes with
+[`customRange`](#migrating-a-subset-of-a-table-using-an-index)
+As always, database operations in migrations will abide
 by your schema definition at runtime. **Note**: if you use
 [custom functions](https://stack.convex.dev/custom-functions) to override
 `internalMutation`, see
@@ -145,6 +147,12 @@ whole table by specifying a `customRange`. You can use any existing index you
 have on the table, or the built-in `by_creation_time` index.
 
 ```ts
+import { Migrations } from "@convex-dev/migrations";
+import { components } from "./_generated/api.js";
+import schema from "./_generated/schema.js";
+
+export const migrations = new Migrations(components.migrations, { schema });
+
 export const validateRequiredField = migrations.define({
   table: "myTable",
   customRange: (query) =>
@@ -156,6 +164,8 @@ export const validateRequiredField = migrations.define({
   },
 });
 ```
+
+Note: to use customRange, you must provide your schema to Migrations.
 
 ## Running migrations one at a time
 
@@ -451,57 +461,6 @@ Or in code:
 await migrations.getStatus(ctx, { migrations: ["myNewMutation"] });
 await migrations.cancel(ctx, "myNewMutation");
 ```
-
-### Migrations in Convex Components
-
-When writing migrations for data inside a
-[Convex component](https://docs.convex.dev/components/authoring), you **must**
-pass the `schema` option to the Migrations constructor. This is because the
-built-in pagination is not available in component contexts.
-
-```ts
-// Inside your component's convex folder (e.g., myComponent/example.ts)
-import { Migrations } from "@convex-dev/migrations";
-import { components } from "./_generated/api.js";
-import type { DataModel } from "./_generated/dataModel.js";
-import { internalMutation } from "./_generated/server.js";
-import schema from "./schema.js";
-
-// Required for component migrations: pass your schema
-export const migrations = new Migrations(components.migrations, {
-  internalMutation,
-  schema,
-});
-
-export const run = migrations.runner();
-
-export const addDefaultValue = migrations.define({
-  table: "componentData",
-  migrateOne: async (_ctx, doc) => {
-    if (doc.value === undefined) {
-      return { value: "default" };
-    }
-  },
-});
-```
-
-Your component's `convex.config.ts` must also use the migrations component:
-
-```ts
-// myComponent/convex.config.ts
-import { defineComponent } from "convex/server";
-import migrations from "@convex-dev/migrations/convex.config";
-
-const component = defineComponent("myComponent");
-component.use(migrations);
-
-export default component;
-```
-
-**Note**: For regular app-level migrations (not inside a component), the
-`schema` parameter is optional but recommended. When provided, it enables the
-improved paginator from `convex-helpers` which supports multiple pagination
-calls and works more reliably in some edge cases.
 
 ## Running migrations synchronously
 

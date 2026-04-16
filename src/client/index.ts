@@ -106,7 +106,7 @@ export class Migrations<
       migrationsLocationPrefix?: string;
       /**
        * The schema for your database. When provided, it enables the improved
-       * paginator from convex-helpers and provides types for your tables.
+       * paginator from convex-helpers and using customRange.
        * Required when running migrations in a Convex component.
        *
        * ```ts
