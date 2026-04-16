@@ -41,7 +41,7 @@ const testApi: ApiFromModules<{
 describe("migrate", () => {
   test("runs a simple migration in one go", async () => {
     const t = convexTest(schema, modules);
-    const fnHandle = await t.run((ctx) =>
+    const fnHandle = await t.run(() =>
       createFunctionHandle(testApi.doneMigration),
     );
     const result = await t.mutation(api.lib.migrate, {
