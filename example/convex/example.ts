@@ -1,16 +1,13 @@
 import { Migrations, type MigrationStatus } from "@convex-dev/migrations";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api.js";
-import type { DataModel } from "./_generated/dataModel.js";
 import { internalMutation, internalQuery } from "./_generated/server.js";
+import schema from "./schema.js";
 
-export const migrations = new Migrations<DataModel>(components.migrations);
-
-// Allows you to run `npx convex run example:run '{"fn":"example:setDefaultValue"}'`
-export const run = migrations.runner();
-
-// This allows you to just run `npx convex run example:runIt`
-export const runIt = migrations.runner(internal.example.setDefaultValue);
+export const migrations = new Migrations(components.migrations, {
+  internalMutation,
+  schema,
+});
 
 export const setDefaultValue = migrations.define({
   table: "myTable",
