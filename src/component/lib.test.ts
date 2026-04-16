@@ -41,7 +41,9 @@ const testApi: ApiFromModules<{
 describe("migrate", () => {
   test("runs a simple migration in one go", async () => {
     const t = convexTest(schema, modules);
-    const fnHandle = await createFunctionHandle(testApi.doneMigration);
+    const fnHandle = await t.run((ctx) =>
+      createFunctionHandle(testApi.doneMigration),
+    );
     const result = await t.mutation(api.lib.migrate, {
       name: "testMigration",
       fnHandle: fnHandle,
@@ -115,8 +117,8 @@ describe("cancel", () => {
 
   test("cancel calls scheduler.cancel when workerId exists", async () => {
     const t = convexTest(schema, modules);
-    const fnHandle = await createFunctionHandle(
-      inProgressApi.inProgressMigration,
+    const fnHandle = await t.run(() =>
+      createFunctionHandle(inProgressApi.inProgressMigration),
     );
 
     // Start migration with oneBatchOnly=false so it schedules next batch
@@ -145,7 +147,9 @@ describe("cancel", () => {
 
   test("canceled migration can be restarted", async () => {
     const t = convexTest(schema, modules);
-    const fnHandle = await createFunctionHandle(testApi.doneMigration);
+    const fnHandle = await t.run(() =>
+      createFunctionHandle(testApi.doneMigration),
+    );
 
     // Create a migration with a canceled scheduled function
     await t.run(async (ctx) => {
@@ -207,7 +211,9 @@ describe("It doesn't attempt a migration if it's already done", () => {
 describe("reset", () => {
   test("reset re-runs a migration that was already done", async () => {
     const t = convexTest(schema, modules);
-    const fnHandle = await createFunctionHandle(testApi.doneMigration);
+    const fnHandle = await t.run(() =>
+      createFunctionHandle(testApi.doneMigration),
+    );
     // Pre-seed a completed migration
     await t.run((ctx) =>
       ctx.db.insert("migrations", {
@@ -236,7 +242,9 @@ describe("reset", () => {
 
   test("reset with cursor: null restarts from beginning", async () => {
     const t = convexTest(schema, modules);
-    const fnHandle = await createFunctionHandle(testApi.doneMigration);
+    const fnHandle = await t.run(() =>
+      createFunctionHandle(testApi.doneMigration),
+    );
     // Pre-seed a migration that was in progress (not done)
     await t.run((ctx) =>
       ctx.db.insert("migrations", {
@@ -263,8 +271,12 @@ describe("reset", () => {
   test("reset propagates to next migrations in a series", async () => {
     vi.useFakeTimers();
     const t = convexTest(schema, modules);
-    const fnHandle1 = await createFunctionHandle(testApi.doneMigration);
-    const fnHandle2 = await createFunctionHandle(testApi.doneMigration2);
+    const fnHandle1 = await t.run(() =>
+      createFunctionHandle(testApi.doneMigration),
+    );
+    const fnHandle2 = await t.run(() =>
+      createFunctionHandle(testApi.doneMigration2),
+    );
     // Pre-seed both migrations as completed
     await t.run(async (ctx) => {
       await ctx.db.insert("migrations", {
@@ -314,8 +326,12 @@ describe("reset", () => {
 
   test("without reset, already-done next migrations are skipped", async () => {
     const t = convexTest(schema, modules);
-    const fnHandle1 = await createFunctionHandle(testApi.doneMigration);
-    const fnHandle2 = await createFunctionHandle(testApi.doneMigration2);
+    const fnHandle1 = await t.run(() =>
+      createFunctionHandle(testApi.doneMigration),
+    );
+    const fnHandle2 = await t.run(() =>
+      createFunctionHandle(testApi.doneMigration2),
+    );
     // Pre-seed migration2 as completed
     await t.run(async (ctx) => {
       await ctx.db.insert("migrations", {
@@ -348,7 +364,9 @@ describe("reset", () => {
 
   test("reset on a fresh migration (no prior state) works", async () => {
     const t = convexTest(schema, modules);
-    const fnHandle = await createFunctionHandle(testApi.doneMigration);
+    const fnHandle = await t.run(() =>
+      createFunctionHandle(testApi.doneMigration),
+    );
     // No pre-seeded state — reset on a brand new migration
     const result = await t.mutation(api.lib.migrate, {
       name: "freshMigration",
