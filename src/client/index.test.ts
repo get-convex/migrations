@@ -24,9 +24,9 @@ describe("isNewFormatCursor", () => {
     // Example cursors from convex-helpers paginator
     expect(isNewFormatCursor('["value", 1234567890, "documentId"]')).toBe(true);
     expect(isNewFormatCursor("[]")).toBe(true);
-    expect(isNewFormatCursor('[1719412234000,"k97d5ycbj3vgwcprmmxvmrm2dh7a5qhv"]')).toBe(
-      true,
-    );
+    expect(
+      isNewFormatCursor('[1719412234000,"k97d5ycbj3vgwcprmmxvmrm2dh7a5qhv"]'),
+    ).toBe(true);
   });
 
   test("old format cursor (encrypted string) returns false", () => {
