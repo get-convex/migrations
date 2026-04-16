@@ -1,3 +1,4 @@
+import { paginator } from "convex-helpers/server/pagination";
 import {
   createFunctionHandle,
   type DataModelFromSchemaDefinition,
@@ -22,7 +23,6 @@ import {
   type TableDefinition,
   type TableNamesInDataModel,
 } from "convex/server";
-import { paginator } from "convex-helpers/server/pagination";
 import {
   type MigrationArgs,
   migrationArgs,
@@ -33,8 +33,8 @@ export type { MigrationArgs, MigrationResult, MigrationStatus };
 
 import { ConvexError, type GenericId } from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
-import { logStatusAndInstructions } from "./log.js";
 import type { MigrationFunctionHandle } from "../component/lib.js";
+import { logStatusAndInstructions } from "./log.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
