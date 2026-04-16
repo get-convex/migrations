@@ -5,21 +5,14 @@
  * to the Migrations constructor. This is because the built-in .paginate() method
  * is not available in component contexts - we use the paginator from convex-helpers instead.
  */
-import {
-  Migrations,
-  type SchemaForDataModel,
-} from "@convex-dev/migrations";
+import { Migrations } from "@convex-dev/migrations";
 import { components } from "./_generated/api.js";
-import type { DataModel } from "./_generated/dataModel.js";
 import { internalMutation } from "./_generated/server.js";
 import schema from "./schema.js";
 
-// When running migrations in a component, you MUST pass the schema.
-// The schema enables the paginator from convex-helpers which works in components.
-export const migrations = new Migrations<DataModel>(components.migrations, {
+export const migrations = new Migrations(components.migrations, {
   internalMutation,
-  // Required for component migrations - enables convex-helpers paginator
-  schema: schema as SchemaForDataModel<DataModel>,
+  schema,
 });
 
 // Create a runner for CLI usage
