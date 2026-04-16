@@ -17,8 +17,12 @@ export const setDefaultValue = migrations.define({
 });
 ```
 
-You can then run it programmatically or from the CLI. See
+You can then run it directly from the CLI or programmatically. See
 [below](#running-migrations-one-at-a-time).
+
+```sh
+npx convex run migrations:setDefaultValue
+```
 
 Migrations allow you to define functions that run on all documents in a table
 (or a specified subset). They run in batches asynchronously (online migration).
@@ -155,34 +159,34 @@ export const validateRequiredField = migrations.define({
 
 ### Using the Dashboard or CLI
 
-To define a one-off function to run a single migration, pass a reference to it:
-
-```ts
-export const runIt = migrations.runner(internal.migrations.setDefaultValue);
-```
-
-To run it from the CLI:
+The simplest way to run a migration is to call it directly:
 
 ```sh
-npx convex run convex/migrations.ts:runIt # or shorthand: migrations:runIt
+npx convex run migrations:setDefaultValue
 ```
 
-**Note**: pass the `--prod` argument to run this and below commands in
-production
+The migration auto-detects its own function name, so no extra arguments are
+needed. Pass `--prod` to run in production.
 
 Running it from the dashboard:
 
 ![Dashboard screenshot](./dashboard_screenshot.png)
 
-You can also expose a general-purpose function to run your migrations. For
-example, in `convex/migrations.ts` add:
+You can also define a one-off runner for a specific migration:
+
+```ts
+export const runIt = migrations.runner(internal.migrations.setDefaultValue);
+```
+
+```sh
+npx convex run migrations:runIt
+```
+
+Or expose a general-purpose runner that accepts any migration by name:
 
 ```ts
 export const run = migrations.runner();
 ```
-
-Then run it with the
-[function name](https://docs.convex.dev/functions/query-functions#query-names):
 
 ```sh
 npx convex run migrations:run '{fn: "migrations:setDefaultValue"}'
@@ -407,6 +411,29 @@ await migrations.runOne(ctx, internal.migrations.clearField, {
   batchSize: 1,
 });
 ```
+
+### Automatic bandwidth management
+
+Migrations automatically monitor transaction bandwidth usage during batch
+processing. If a transaction exceeds 50% utilization on any metric (bytes
+read/written, documents read/written, etc.), the batch short-circuits early and
+retries the remaining documents in the next batch.
+
+This prevents hitting
+[transaction limits](https://docs.convex.dev/production/state/limits#transactions)
+when your `migrateOne` function performs expensive operations (reading related
+documents, writing to multiple tables, etc.). You'll see a log message like:
+
+```
+Short-circuiting batch after processing 30/100 documents due to transaction
+limits. 70 documents will be retried in the next batch.
+```
+
+This works automatically with no configuration needed. If you frequently see
+short-circuiting, consider reducing the batch size for that migration.
+
+**Note**: bandwidth monitoring is only available for sequential (non-parallel)
+batch processing.
 
 ### Parallelizing batches
 
