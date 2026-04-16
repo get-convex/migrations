@@ -93,8 +93,6 @@ export class Migrations<DataModel extends GenericDataModel> {
   ) {}
 
   /**
-   * @deprecated You can now start migrations by calling them directly
-   *
    * Creates a migration runner that can be called from the CLI or dashboard.
    *
    * For starting a migration from code, see {@link runOne}/{@link runSerially}.
