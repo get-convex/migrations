@@ -176,6 +176,9 @@ You can also define a general-purpose runner that accepts a migration by name:
 export const run = migrations.runner();
 ```
 
+Then run it with the
+[function name](https://docs.convex.dev/functions/query-functions#query-names):
+
 ```sh
 npx convex run migrations:run '{fn: "migrations:setDefaultValue"}'
 ```
