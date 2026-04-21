@@ -7,6 +7,7 @@ export const migrationArgs = {
   dryRun: v.optional(v.boolean()),
   next: v.optional(v.array(v.string())),
   reset: v.optional(v.boolean()),
+  oneBatchOnly: v.optional(v.boolean()),
 };
 export type MigrationArgs = ObjectType<typeof migrationArgs>;
 

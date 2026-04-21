@@ -294,14 +294,7 @@ export class Migrations<DataModel extends GenericDataModel> {
         // Auto-detect function name for direct CLI/dashboard invocation.
         // The component always provides cursor and dryRun when scheduling
         // batches, so if either is missing this is a direct invocation.
-        if (
-          args.fn ||
-          args.next ||
-          args.cursor === undefined ||
-          args.cursor === "" ||
-          args.dryRun === undefined ||
-          args.batchSize === 0
-        ) {
+        if (!args.oneBatchOnly) {
           if (args.cursor === "" || args.batchSize === 0) {
             console.warn(
               "Running this from the CLI or dashboard? Here's some args to use:",
