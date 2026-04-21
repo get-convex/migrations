@@ -314,8 +314,11 @@ export class Migrations<DataModel extends GenericDataModel> {
           }
           const metadata = await getFunctionMetadata();
           if (args.fn && this.prefixedName(args.fn) !== metadata.name) {
+            const componentFlag = metadata.componentPath
+              ? ` --component ${metadata.componentPath}`
+              : "";
             throw new Error(
-              `Function name mismatch: expected ${metadata.name}, got ${args.fn}. Hint: you can `,
+              `Function name mismatch: expected ${metadata.name}, got ${args.fn}. Hint: you can call it directly with \`npx convex run ${metadata.name}${componentFlag}\`.`,
             );
           }
           return (await this._runInteractive(
