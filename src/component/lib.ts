@@ -117,6 +117,7 @@ export const migrate = mutation({
             cursor: state.cursor,
             batchSize,
             dryRun,
+            oneBatchOnly: true,
           },
         );
         updateState(result);
