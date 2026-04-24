@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4
+
+- Allows calling migration functions directly to start them, instead of the
+  migrations.runner workaround.
+
 ## 0.3.3
 
 - Adds a `reset: true` argument to restart all specified migrations
