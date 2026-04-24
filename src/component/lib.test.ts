@@ -10,9 +10,11 @@ import { api } from "./_generated/api.js";
 import type { MigrationArgs, MigrationResult } from "../client/index.js";
 import { mutation } from "./_generated/server.js";
 import schema from "./schema.js";
+import { migrationArgs } from "../shared.js";
 
 export const doneMigration = mutation({
-  handler: async (_, _args: MigrationArgs): Promise<MigrationResult> => {
+  args: migrationArgs,
+  handler: async (): Promise<MigrationResult> => {
     return {
       isDone: true,
       continueCursor: "foo",
@@ -22,7 +24,8 @@ export const doneMigration = mutation({
 });
 
 export const doneMigration2 = mutation({
-  handler: async (_, _args: MigrationArgs): Promise<MigrationResult> => {
+  args: migrationArgs,
+  handler: async (): Promise<MigrationResult> => {
     return {
       isDone: true,
       continueCursor: "bar",
@@ -92,7 +95,8 @@ describe("migrate", () => {
 });
 
 export const inProgressMigration = mutation({
-  handler: async (_, _args: MigrationArgs): Promise<MigrationResult> => {
+  args: migrationArgs,
+  handler: async (): Promise<MigrationResult> => {
     // Simulates a migration that processes 10 items and needs to continue
     return {
       isDone: false,

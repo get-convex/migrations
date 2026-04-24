@@ -49,7 +49,9 @@ export const convertUnionField = migration({
   table: "myTable",
   migrateOne: async (ctx, doc) => {
     if (typeof doc.unionField === "number") {
-      await ctx.db.patch(doc._id, { unionField: doc.unionField.toString() });
+      await ctx.db.patch("myTable", doc._id, {
+        unionField: doc.unionField.toString(),
+      });
     }
   },
 });

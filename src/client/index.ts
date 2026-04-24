@@ -370,7 +370,7 @@ export class Migrations<DataModel extends GenericDataModel> {
               doc as { _id: GenericId<TableName> },
             );
             if (next && Object.keys(next).length > 0) {
-              await ctx.db.patch(doc._id as GenericId<TableName>, next);
+              await ctx.db.patch(table, doc._id as GenericId<TableName>, next);
             }
           } catch (error) {
             console.error(`Document failed: ${doc._id}`);
@@ -394,7 +394,10 @@ export class Migrations<DataModel extends GenericDataModel> {
           let anyChanges = false;
           let printedChanges = 0;
           for (const before of page) {
-            const after = await ctx.db.get(before._id as GenericId<TableName>);
+            const after = await ctx.db.get(
+              table,
+              before._id as GenericId<TableName>,
+            );
             if (JSON.stringify(after) !== JSON.stringify(before)) {
               anyChanges = true;
               printedChanges++;
