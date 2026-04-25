@@ -63,7 +63,8 @@ export const migrate = mutation({
         .withIndex("name", (q) => q.eq("name", name))
         .unique()) ??
       (await ctx.db.get(
-        "migrations", await ctx.db.insert("migrations", {
+        "migrations",
+        await ctx.db.insert("migrations", {
           name,
           cursor: args.cursor ?? null,
           isDone: false,
@@ -79,7 +80,8 @@ export const migrate = mutation({
       // 2. The migration is being resumed at a different cursor.
       // 3. There are two instances of the same migration racing.
       const worker =
-        state.workerId && (await ctx.db.system.get("_scheduled_functions", state.workerId));
+        state.workerId &&
+        (await ctx.db.system.get("_scheduled_functions", state.workerId));
       if (
         worker &&
         (worker.state.kind === "pending" || worker.state.kind === "inProgress")
@@ -246,7 +248,8 @@ async function getMigrationState(
   migration: WithoutSystemFields<Doc<"migrations">>,
 ): Promise<MigrationStatus> {
   const worker =
-    migration.workerId && (await ctx.db.system.get("_scheduled_functions", migration.workerId));
+    migration.workerId &&
+    (await ctx.db.system.get("_scheduled_functions", migration.workerId));
   const args = worker?.args[0] as
     | ObjectType<typeof runMigrationArgs>
     | undefined;
