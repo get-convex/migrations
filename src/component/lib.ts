@@ -262,7 +262,7 @@ async function getMigrationState(
           : "unknown";
   return {
     name: migration.name,
-    cursor: migration.cursor,
+    cursor: migration.isDone ? null : migration.cursor,
     processed: migration.processed,
     isDone: migration.isDone,
     latestStart: migration.latestStart,
