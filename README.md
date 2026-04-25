@@ -286,8 +286,8 @@ Pass `reset: true` to force a migration to start over from the beginning.
 npx convex run migrations:setDefaultValue '{reset: true}'
 ```
 
-If you specify `next` or run a defined series of migrations, this
-will reset the cursor for all migrations in the group.
+If you specify `next` or run a defined series of migrations, this will reset the
+cursor for all migrations in the group.
 
 ```sh
 npx convex run migrations:runAll '{reset: true}'
