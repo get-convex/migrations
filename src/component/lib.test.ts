@@ -53,7 +53,6 @@ describe("migrate", () => {
       dryRun: false,
     });
     expect(result.isDone).toBe(true);
-    expect(result.cursor).toBe("foo");
     expect(result.processed).toBe(1);
     expect(result.error).toBeUndefined();
     expect(result.batchSize).toBeUndefined();
@@ -238,7 +237,6 @@ describe("reset", () => {
       dryRun: false,
     });
     expect(result.isDone).toBe(true);
-    expect(result.cursor).toBe("foo");
     // processed is reset to 0 then incremented by 1 from doneMigration
     expect(result.processed).toBe(1);
     expect(result.state).toBe("success");
@@ -267,7 +265,6 @@ describe("reset", () => {
       dryRun: false,
     });
     expect(result.isDone).toBe(true);
-    expect(result.cursor).toBe("foo");
     // processed should be reset: 0 + 1 from the migration run
     expect(result.processed).toBe(1);
   });
@@ -324,7 +321,6 @@ describe("reset", () => {
     expect(statuses[0]!.isDone).toBe(true);
     // migration2 ran with reset, so processed should be fresh (2 from doneMigration2)
     expect(statuses[0]!.processed).toBe(2);
-    expect(statuses[0]!.cursor).toBe("bar");
     vi.useRealTimers();
   });
 
@@ -342,7 +338,7 @@ describe("reset", () => {
         name: "migration2",
         latestStart: Date.now(),
         isDone: true,
-        cursor: "cursor2",
+        cursor: null,
         processed: 20,
       });
     });
@@ -363,7 +359,7 @@ describe("reset", () => {
     });
     expect(statuses).toHaveLength(1);
     expect(statuses[0]!.processed).toBe(20);
-    expect(statuses[0]!.cursor).toBe("cursor2");
+    expect(statuses[0]!.cursor).toBe(null);
   });
 
   test("reset on a fresh migration (no prior state) works", async () => {
