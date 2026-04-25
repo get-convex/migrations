@@ -233,7 +233,7 @@ export const getStatus = query({
       : await ctx.db
           .query("migrations")
           .order("desc")
-          .take(args.limit ?? 10);
+          .take(args.limit ?? 100);
 
     return Promise.all(
       docs
