@@ -93,13 +93,15 @@ examples below from `internal.migrations.*` to your new file name, like
 ```ts
 import { Migrations } from "@convex-dev/migrations";
 import { components } from "./_generated/api.js";
-import { DataModel } from "./_generated/dataModel.js";
+import schema from "./_generated/schema.js";
 
-export const migrations = new Migrations<DataModel>(components.migrations);
+export const migrations = new Migrations(components.migrations, { schema });
 ```
 
-The type parameter `DataModel` is optional. It provides type safety for
-migration definitions. As always, database operations in migrations will abide
+The `schema` provides type safety for migration definitions and support
+for pagination over custom indexes with
+[`customRange`](#migrating-a-subset-of-a-table-using-an-index)
+As always, database operations in migrations will abide
 by your schema definition at runtime. **Note**: if you use
 [custom functions](https://stack.convex.dev/custom-functions) to override
 `internalMutation`, see
@@ -142,6 +144,12 @@ whole table by specifying a `customRange`. You can use any existing index you
 have on the table, or the built-in `by_creation_time` index.
 
 ```ts
+import { Migrations } from "@convex-dev/migrations";
+import { components } from "./_generated/api.js";
+import schema from "./_generated/schema.js";
+
+export const migrations = new Migrations(components.migrations, { schema });
+
 export const validateRequiredField = migrations.define({
   table: "myTable",
   customRange: (query) =>
@@ -153,6 +161,8 @@ export const validateRequiredField = migrations.define({
   },
 });
 ```
+
+Note: to use customRange, you must provide your schema to Migrations.
 
 ## Running migrations one at a time
 

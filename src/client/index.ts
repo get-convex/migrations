@@ -1,5 +1,9 @@
+import { paginator } from "convex-helpers/server/pagination";
 import {
   createFunctionHandle,
+  type DataModelFromSchemaDefinition,
+  defineSchema,
+  defineTable,
   type DocumentByName,
   type FunctionReference,
   type GenericActionCtx,
@@ -15,6 +19,8 @@ import {
   type OrderedQuery,
   type QueryInitializer,
   type RegisteredMutation,
+  type SchemaDefinition,
+  type TableDefinition,
   type TableNamesInDataModel,
 } from "convex/server";
 import {
@@ -27,13 +33,22 @@ export type { MigrationArgs, MigrationResult, MigrationStatus };
 
 import { ConvexError, type GenericId } from "convex/values";
 import type { ComponentApi } from "../component/_generated/component.js";
-import { logStatusAndInstructions } from "./log.js";
 import type { MigrationFunctionHandle } from "../component/lib.js";
+import { logStatusAndInstructions } from "./log.js";
 
 // Note: this value is hard-coded in the docstring below. Please keep in sync.
 export const DEFAULT_BATCH_SIZE = 100;
 
-export class Migrations<DataModel extends GenericDataModel> {
+export class Migrations<
+  DM extends GenericDataModel,
+  Schema extends SchemaDefinition<any, boolean> | void = void,
+  DataModel extends GenericDataModel = Schema extends SchemaDefinition<
+    any,
+    boolean
+  >
+    ? DataModelFromSchemaDefinition<Schema>
+    : DM,
+> {
   /**
    * Makes the migration wrapper, with types for your own tables.
    *
@@ -89,6 +104,20 @@ export class Migrations<DataModel extends GenericDataModel> {
        * ```
        */
       migrationsLocationPrefix?: string;
+      /**
+       * The schema for your database. When provided, it enables the improved
+       * paginator from convex-helpers and using customRange.
+       * Required when running migrations in a Convex component.
+       *
+       * ```ts
+       * import schema from "./schema.js";
+       *
+       * const migrations = new Migrations(components.migrations, {
+       *   schema,
+       * });
+       * ```
+       */
+      schema?: Schema;
     },
   ) {}
 
@@ -341,7 +370,36 @@ export class Migrations<DataModel extends GenericDataModel> {
           }
         }
 
-        const q = ctx.db.query(table);
+        // Determine which pagination method to use
+        const cursorIsOldFormat =
+          args.cursor !== null &&
+          args.cursor !== undefined &&
+          !isNewFormatCursor(args.cursor);
+
+        // Use paginator when cursor is compatible.
+        // Falls back to built-in db.query for old-format cursors from
+        // in-progress migrations that started before the paginator was used.
+        const useNewPaginator = !cursorIsOldFormat;
+        if (useNewPaginator && customRange && !this.options?.schema) {
+          throw new Error(
+            `You must provide your schema to use a custom range.`,
+          );
+        }
+        const paginatorSchema = (this.options?.schema ??
+          defineSchema({ [table]: defineTable({}) })) as SchemaDefinition<
+          Record<TableName, TableDefinition>,
+          true
+        >;
+
+        // Build the query using either paginator or built-in db.query
+        // Both implement compatible QueryInitializer interfaces
+        const q = useNewPaginator
+          ? (paginator(ctx.db as any, paginatorSchema).query(
+              table,
+            ) as unknown as QueryInitializer<
+              NamedTableInfo<DataModel, TableName>
+            >)
+          : ctx.db.query(table);
         const range = customRange ? customRange(q) : q;
         let continueCursor: string;
         let page: DocumentByName<DataModel, TableName>[];
@@ -706,6 +764,22 @@ export async function runToCompletion(
     }
     cursor = status.cursor;
   }
+}
+
+/**
+ * Detects if a cursor is in the new paginator format (JSON array starting with "[")
+ * or old built-in format (encrypted opaque string).
+ *
+ * New format cursors from convex-helpers paginator are JSON-serialized arrays like:
+ * '["value", 1234567890, "documentId"]'
+ *
+ * Old format cursors from built-in .paginate() are encrypted opaque strings.
+ *
+ * @returns true if this is a new-format cursor (or null for starting fresh)
+ */
+export function isNewFormatCursor(cursor: string | null): boolean {
+  if (cursor === null) return true;
+  return typeof cursor === "string" && cursor.startsWith("[");
 }
 
 /* Type utils follow */
