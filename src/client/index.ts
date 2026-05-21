@@ -240,7 +240,8 @@ export class Migrations<
       }
     }
 
-    return logStatusAndInstructions(name, status, args);
+    const { componentPath } = await getFunctionMetadata();
+    return logStatusAndInstructions(name, status, args, componentPath);
   }
 
   /**
