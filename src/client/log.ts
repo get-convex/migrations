@@ -56,12 +56,12 @@ export function logStatusAndInstructions(
     if (status.state === "inProgress") {
       output["toCancel"] = {
         cmd: `${run} lib:cancel`,
-        args: `{"name": "${name}"}`,
+        args: `{name: "${name}"}`,
         prod: `--prod`,
       };
       output["toMonitorStatus"] = {
         cmd: `${run} --watch lib:getStatus`,
-        args: `{"names": ["${name}"${status.next?.length ? ", " + nextArgs : ""}]}`,
+        args: `{names: ["${name}"${status.next?.length ? ", " + nextArgs : ""}]}`,
         prod: `--prod`,
       };
     } else {
@@ -74,7 +74,7 @@ export function logStatusAndInstructions(
       if (status.next?.length) {
         output["toMonitorStatus"] = {
           cmd: `${run} --watch lib:getStatus`,
-          args: `{"names": [${nextArgs}]}`,
+          args: `{names: [${nextArgs}]}`,
           prod: `--prod`,
         };
       }
