@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.5-alpha.0
+## 0.3.5 alpha
 
 - Supports running migrations within components by using the convex-helpers
   paginator instead of built-in .paginate
