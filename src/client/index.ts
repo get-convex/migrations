@@ -105,10 +105,7 @@ export class Migrations<
        */
       migrationsLocationPrefix?: string;
       /**
-       * The schema for your database. When provided, it enables the improved
-       * paginator from convex-helpers and using customRange.
-       * Required when running migrations in a Convex component.
-       *
+       * The schema for your database. Required when using customRange.
        * ```ts
        * import schema from "./schema.js";
        *
