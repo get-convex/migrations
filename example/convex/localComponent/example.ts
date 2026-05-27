@@ -15,9 +15,6 @@ export const migrations = new Migrations(components.migrations, {
   schema,
 });
 
-// Create a runner for CLI usage
-export const run = migrations.runner();
-
 // Example migration: Add default value to the 'value' field
 export const addDefaultValue = migrations.define({
   table: "componentData",
