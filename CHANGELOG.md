@@ -1,9 +1,11 @@
 # Changelog
 
-## 0.3.5 alpha
+## 0.3.5
 
 - Supports running migrations within components by using the convex-helpers
   paginator instead of built-in .paginate
+- Stores a `null` cursor when done with a migration.
+- Shows the status for the most recent 100 migrations by default, up from 10.
 
 ## 0.3.4
 
