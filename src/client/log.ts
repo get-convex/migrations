@@ -10,6 +10,7 @@ export function logStatusAndInstructions(
     dryRun?: boolean;
     reset?: boolean;
   },
+  componentPath: string,
 ) {
   const output: Record<string, unknown> = {};
   if (status.isDone) {
@@ -49,17 +50,18 @@ export function logStatusAndInstructions(
     }
   }
   const nextArgs = (status.next || []).map((n) => `"${n}"`).join(", ");
-  const run = `npx convex run --component migrations`;
+  const prefix = componentPath ? `${componentPath}/migrations` : "migrations";
+  const run = `npx convex run --component ${prefix}`;
   if (!args.dryRun) {
     if (status.state === "inProgress") {
       output["toCancel"] = {
         cmd: `${run} lib:cancel`,
-        args: `{"name": "${name}"}`,
+        args: `{name: "${name}"}`,
         prod: `--prod`,
       };
       output["toMonitorStatus"] = {
         cmd: `${run} --watch lib:getStatus`,
-        args: `{"names": ["${name}"${status.next?.length ? ", " + nextArgs : ""}]}`,
+        args: `{names: ["${name}"${status.next?.length ? ", " + nextArgs : ""}]}`,
         prod: `--prod`,
       };
     } else {
@@ -72,7 +74,7 @@ export function logStatusAndInstructions(
       if (status.next?.length) {
         output["toMonitorStatus"] = {
           cmd: `${run} --watch lib:getStatus`,
-          args: `{"names": [${nextArgs}]}`,
+          args: `{names: [${nextArgs}]}`,
           prod: `--prod`,
         };
       }
