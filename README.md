@@ -100,7 +100,7 @@ export const migrations = new Migrations(components.migrations, { schema });
 
 The `schema` provides type safety for migration definitions and support
 for pagination over custom indexes with
-[`customRange`](#migrating-a-subset-of-a-table-using-an-index)
+[`customRange`](#migrating-a-subset-of-a-table-using-an-index).
 As always, database operations in migrations will abide
 by your schema definition at runtime. **Note**: if you use
 [custom functions](https://stack.convex.dev/custom-functions) to override
