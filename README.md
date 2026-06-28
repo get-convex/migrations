@@ -98,11 +98,11 @@ import schema from "./_generated/schema.js";
 export const migrations = new Migrations(components.migrations, { schema });
 ```
 
-The `schema` provides type safety for migration definitions and support
-for pagination over custom indexes with
-[`customRange`](#migrating-a-subset-of-a-table-using-an-index).
-As always, database operations in migrations will abide
-by your schema definition at runtime. **Note**: if you use
+The `schema` provides type safety for migration definitions and support for
+pagination over custom indexes with
+[`customRange`](#migrating-a-subset-of-a-table-using-an-index). As always,
+database operations in migrations will abide by your schema definition at
+runtime. **Note**: if you use
 [custom functions](https://stack.convex.dev/custom-functions) to override
 `internalMutation`, see
 [below](#override-the-internalmutation-to-apply-custom-db-behavior).
@@ -163,6 +163,26 @@ export const validateRequiredField = migrations.define({
 ```
 
 Note: to use customRange, you must provide your schema to Migrations.
+
+`customRange` may also return an array of ranges. This is useful when a single
+logical migration needs to read several indexed subsets without scanning the
+whole table. The component runs each range to completion before advancing to the
+next one.
+
+```ts
+export const validateRequiredFields = migrations.define({
+  table: "myTable",
+  customRange: (query) => [
+    query.withIndex("by_requiredField", (q) =>
+      q.eq("requiredField", "<todo1>"),
+    ),
+    query.withIndex("by_requiredField", (q) =>
+      q.eq("requiredField", "<todo2>"),
+    ),
+  ],
+  migrateOne: () => ({ requiredField: "<unknown>" }),
+});
+```
 
 ## Running migrations one at a time
 
@@ -307,6 +327,11 @@ You can also pass in any valid cursor to start from. You can find valid cursors
 in the response of calls to `getStatus`. This can allow retrying a migration
 from a known good point as you iterate on the code.
 
+For a migration whose `customRange` returns multiple ranges, the cursor is
+scoped to the current range. Pass both `cursor` and `currentRangeIndex` from
+`getStatus` when resuming from a known point in any range after the first.
+Passing `reset: true` resets `currentRangeIndex` to `0`.
+
 Note: if you're starting a migration from a specific cursor from the CLI or
 dashboard, do not pass `dryRun: false` explicitly, leave it undefined.
 
@@ -398,6 +423,32 @@ it. This can be useful if your documents are large, to avoid running over the
 [transaction limit](https://docs.convex.dev/production/state/limits#transactions),
 or if your documents are updating frequently and you are seeing OCC conflicts
 while migrating.
+
+When you do not pass an explicit batch size for a run, the component treats the
+migration definition's `batchSize`, `defaultBatchSize`, or `100` as the starting
+size and then adjusts future batches from Convex transaction metrics. After a
+successful batch, it estimates the largest next batch that would keep the
+highest transaction-limit usage at or below half of the limit. If adding one
+more document would be expected to cross that half-limit target, the batch size
+stays unchanged; if the last batch used more than half of a limit, the next
+batch shrinks toward the same target. When transaction metrics shrink the batch
+size, `getStatus` includes `limitingMetric` with the metric name.
+
+If a batch transaction fails because it exceeded a known Convex limit, such as
+bytes read, documents read, database queries, bytes written, documents written,
+scheduled-function count, or scheduled-function argument bytes, the component
+retries with a smaller batch instead of immediately failing the migration. The
+first retry roughly halves the failed size. Once the component has both a
+successful smaller size and a failed larger size, it chooses a size between
+them. These retries can go below the configured or default batch size, down to
+`1`; if a batch of `1` still fails with the same kind of error, the migration
+stops and stores the error in status. Permanent OCC failures use the same
+smaller-batch retry behavior because smaller batches read and write fewer
+documents.
+
+A `batchSize` in the migration definition sets that migration's starting/default
+size. Passing `batchSize` for a particular run keeps successful batches fixed at
+that size; transaction-limit or OCC failures may still force a smaller retry.
 
 ```ts
 export const clearField = migrations.define({

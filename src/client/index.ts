@@ -24,6 +24,9 @@ import {
   type TableNamesInDataModel,
 } from "convex/server";
 import {
+  MIGRATION_BATCH_FAILURE,
+  getMigrationDryRunResult,
+  getMigrationDryRunStatus,
   type MigrationArgs,
   migrationArgs,
   type MigrationResult,
@@ -184,6 +187,7 @@ export class Migrations<
     args: MigrationArgs,
     fnRef?: MigrationFunctionReference,
     next?: { name: string; fnHandle: string }[],
+    defaultBatchSize?: number,
   ) {
     const name = args.fn ? this.prefixedName(args.fn) : getFunctionName(fnRef!);
     async function makeFn(fn: string) {
@@ -214,30 +218,37 @@ export class Migrations<
     }
     // Handle reset option: reset sets cursor to null for all migrations
     const cursor = args.reset ? null : args.cursor;
+    const batchSize = args.batchSize ?? defaultBatchSize;
+    // Missing position fields mean "resume the component's stored position".
+    // Explicit cursor/reset starts from range 0 unless a caller intentionally
+    // supplied another range index.
+    const currentRangeIndex =
+      args.reset || args.cursor !== undefined
+        ? (args.currentRangeIndex ?? 0)
+        : args.currentRangeIndex;
     let status: MigrationStatus;
     try {
       status = await ctx.runMutation(this.component.lib.migrate, {
         name,
         fnHandle,
-        cursor,
-        batchSize: args.batchSize,
+        ...(cursor !== undefined ? { cursor } : {}),
+        ...(currentRangeIndex !== undefined ? { currentRangeIndex } : {}),
+        batchSize,
         next,
         dryRun: args.dryRun ?? false,
         reset: args.reset,
+        adaptiveBatchSize: args.batchSize === undefined,
       });
     } catch (e) {
-      if (
-        args.dryRun &&
-        e instanceof ConvexError &&
-        e.data.kind === "DRY RUN"
-      ) {
-        status = e.data.status;
+      const dryRunStatus = args.dryRun ? getMigrationDryRunStatus(e) : undefined;
+      if (dryRunStatus !== undefined) {
+        status = dryRunStatus;
       } else {
         throw e;
       }
     }
 
-    const { componentPath } = await getFunctionMetadata();
+    const { componentPath } = await ctx.meta.getFunctionMetadata();
     return logStatusAndInstructions(name, status, args, componentPath);
   }
 
@@ -280,6 +291,8 @@ export class Migrations<
    * @param batchSize - The number of documents to process in a batch.
    *   If not set, defaults to the value passed to makeMigration,
    *   or {@link DEFAULT_BATCH_SIZE}. Overriden by arg at runtime if supplied.
+   * @param customRange - The indexed subset to migrate. Return an array to run
+   *   multiple indexed ranges in sequence.
    * @param parallelize - If true, each migration batch will be run in parallel.
    * @returns An internal mutation that runs the migration.
    */
@@ -300,7 +313,9 @@ export class Migrations<
       | Promise<Partial<DocumentByName<DataModel, TableName>> | void>;
     customRange?: (
       q: QueryInitializer<NamedTableInfo<DataModel, TableName>>,
-    ) => OrderedQuery<NamedTableInfo<DataModel, TableName>>;
+    ) =>
+      | OrderedQuery<NamedTableInfo<DataModel, TableName>>
+      | readonly OrderedQuery<NamedTableInfo<DataModel, TableName>>[];
     batchSize?: number;
     parallelize?: boolean;
   }) {
@@ -332,7 +347,7 @@ export class Migrations<
             });
             return;
           }
-          const metadata = await getFunctionMetadata();
+          const metadata = await ctx.meta.getFunctionMetadata();
           if (args.fn && this.prefixedName(args.fn) !== metadata.name) {
             const componentFlag = metadata.componentPath
               ? ` --component ${metadata.componentPath}`
@@ -347,146 +362,198 @@ export class Migrations<
             makeFunctionReference(
               metadata.name,
             ) as unknown as MigrationFunctionReference,
+            undefined,
+            defaultBatchSize,
           )) as any;
         }
 
-        const numItems = args.batchSize || defaultBatchSize;
-        if (args.cursor === undefined || args.cursor === "") {
-          if (args.dryRun === undefined) {
-            console.warn(
-              "No cursor or dryRun specified - doing a dry run on the next batch.",
-            );
-            args.cursor = null;
-            args.dryRun = true;
-          } else if (args.dryRun) {
-            console.warn("Setting cursor to null for dry run");
-            args.cursor = null;
-          } else {
-            throw new Error(`Cursor must be specified for a one-off execution.
+        const numItems = args.batchSize ?? defaultBatchSize;
+        if (!Number.isInteger(numItems)) {
+          throw new Error("Batch size must be an integer");
+        }
+        if (numItems <= 0) {
+          throw new Error("Batch size must be greater than 0");
+        }
+        try {
+          if (args.cursor === undefined || args.cursor === "") {
+            if (args.dryRun === undefined) {
+              console.warn(
+                "No cursor or dryRun specified - doing a dry run on the next batch.",
+              );
+              args.cursor = null;
+              args.dryRun = true;
+            } else if (args.dryRun) {
+              console.warn("Setting cursor to null for dry run");
+              args.cursor = null;
+            } else {
+              throw new Error(`Cursor must be specified for a one-off execution.
               Use null to start from the beginning.
               Use the value in the migrations database to pick up from where it left off.`);
+            }
           }
-        }
 
-        // Determine which pagination method to use
-        const cursorIsOldFormat =
-          args.cursor !== null &&
-          args.cursor !== undefined &&
-          !isNewFormatCursor(args.cursor);
+          // Determine which pagination method to use
+          const cursorIsOldFormat =
+            args.cursor !== null &&
+            args.cursor !== undefined &&
+            !isNewFormatCursor(args.cursor);
 
-        // Use paginator when cursor is compatible.
-        // Falls back to built-in db.query for old-format cursors from
-        // in-progress migrations that started before the paginator was used.
-        const useNewPaginator = !cursorIsOldFormat;
-        if (useNewPaginator && customRange && !this.options?.schema) {
-          throw new Error(
-            `You must provide your schema to use a custom range.`,
-          );
-        }
-        const paginatorSchema = (this.options?.schema ??
-          defineSchema({ [table]: defineTable({}) })) as SchemaDefinition<
-          Record<TableName, TableDefinition>,
-          true
-        >;
+          // Use paginator when cursor is compatible.
+          // Falls back to built-in db.query for old-format cursors from
+          // in-progress migrations that started before the paginator was used.
+          const useNewPaginator = !cursorIsOldFormat;
+          if (useNewPaginator && customRange && !this.options?.schema) {
+            throw new Error(
+              `You must provide your schema to use a custom range.`,
+            );
+          }
+          const paginatorSchema = (this.options?.schema ??
+            defineSchema({ [table]: defineTable({}) })) as SchemaDefinition<
+            Record<TableName, TableDefinition>,
+            true
+          >;
 
-        // Build the query using either paginator or built-in db.query
-        // Both implement compatible QueryInitializer interfaces
-        const q = useNewPaginator
-          ? (paginator(ctx.db as any, paginatorSchema).query(
-              table,
-            ) as unknown as QueryInitializer<
-              NamedTableInfo<DataModel, TableName>
-            >)
-          : ctx.db.query(table);
-        const range = customRange ? customRange(q) : q;
-        let continueCursor: string;
-        let page: DocumentByName<DataModel, TableName>[];
-        let isDone: boolean;
-        try {
-          ({ continueCursor, page, isDone } = await range.paginate({
-            cursor: args.cursor,
-            numItems,
-          }));
-        } catch (e) {
-          console.error(
-            "Error paginating. This can happen if the migration " +
-              "was initially run on a different table, different custom range, " +
-              "or you upgraded convex-helpers with in-progress migrations. " +
-              "This creates an invalid pagination cursor. " +
-              "Run all migrations to completion on the old cursor, or re-run " +
-              "them explicitly with the cursor set to null. " +
-              "If the problem persists, contact support@convex.dev",
-          );
-          throw e;
-        }
-        async function doOne(doc: DocumentByName<DataModel, TableName>) {
+          // Build the query using either paginator or built-in db.query
+          // Both implement compatible QueryInitializer interfaces
+          const q = useNewPaginator
+            ? (paginator(ctx.db as any, paginatorSchema).query(
+                table,
+              ) as unknown as QueryInitializer<
+                NamedTableInfo<DataModel, TableName>
+              >)
+            : ctx.db.query(table);
+          const range = customRange ? customRange(q) : q;
+          const ranges = Array.isArray(range) ? range : [range];
+          if (ranges.length === 0) {
+            throw new Error("Custom range list must not be empty");
+          }
+          const currentRangeIndex = args.currentRangeIndex ?? 0;
+          if (!Number.isInteger(currentRangeIndex)) {
+            throw new Error("Current range index must be an integer");
+          }
+          if (currentRangeIndex < 0 || currentRangeIndex >= ranges.length) {
+            throw new Error(
+              "Current range index is outside the custom range list",
+            );
+          }
+          const selectedRange = ranges[currentRangeIndex]!;
+          let continueCursor: string;
+          let page: DocumentByName<DataModel, TableName>[];
+          let isDone: boolean;
           try {
-            const next = await migrateOne(
-              ctx,
-              doc as { _id: GenericId<TableName> },
+            ({ continueCursor, page, isDone } = await selectedRange.paginate({
+              cursor: args.cursor,
+              numItems,
+            }));
+          } catch (e) {
+            console.error(
+              "Error paginating. This can happen if the migration " +
+                "was initially run on a different table, different custom range, " +
+                "or you upgraded convex-helpers with in-progress migrations. " +
+                "This creates an invalid pagination cursor. " +
+                "Run all migrations to completion on the old cursor, or re-run " +
+                "them explicitly with the cursor set to null. " +
+                "If the problem persists, contact support@convex.dev",
             );
-            if (next && Object.keys(next).length > 0) {
-              await ctx.db.patch(table, doc._id as GenericId<TableName>, next);
-            }
-          } catch (error) {
-            console.error(`Document failed: ${doc._id}`);
-            throw error;
+            throw e;
           }
-        }
-        if (parallelize) {
-          await Promise.all(page.map(doOne));
-        } else {
-          for (const doc of page) {
-            await doOne(doc);
-          }
-        }
-        const result = {
-          continueCursor,
-          isDone,
-          processed: page.length,
-        };
-        if (args.dryRun) {
-          // Throwing an error rolls back the transaction
-          let anyChanges = false;
-          let printedChanges = 0;
-          for (const before of page) {
-            const after = await ctx.db.get(
-              table,
-              before._id as GenericId<TableName>,
-            );
-            if (JSON.stringify(after) !== JSON.stringify(before)) {
-              anyChanges = true;
-              printedChanges++;
-              if (printedChanges > 10) {
-                console.debug(
-                  "DRY RUN: More than 10 changes were found in the first page. Skipping the rest.",
+          async function doOne(doc: DocumentByName<DataModel, TableName>) {
+            try {
+              const next = await migrateOne(
+                ctx,
+                doc as { _id: GenericId<TableName> },
+              );
+              if (next && Object.keys(next).length > 0) {
+                await ctx.db.patch(
+                  table,
+                  doc._id as GenericId<TableName>,
+                  next,
                 );
-                break;
               }
-              console.debug("DRY RUN: Example change", {
-                before,
-                after,
-              });
+            } catch (error) {
+              console.error(`Document failed: ${doc._id}`);
+              throw error;
             }
           }
-          if (!anyChanges) {
-            console.debug(
-              "DRY RUN: No changes were found in the first page. " +
-                `Try {"dryRun": true, "cursor": "${continueCursor}"}`,
-            );
+          if (parallelize) {
+            await Promise.all(page.map(doOne));
+          } else {
+            for (const doc of page) {
+              await doOne(doc);
+            }
+          }
+          const metrics = await ctx.meta.getTransactionMetrics();
+          const resultCurrentRangeIndex = isDone
+            ? currentRangeIndex + 1
+            : currentRangeIndex;
+          const migrationIsDone = resultCurrentRangeIndex >= ranges.length;
+          // When one range finishes but later ranges remain, reset the cursor
+          // for the next range and advance currentRangeIndex. A non-done page
+          // must keep its cursor and current range.
+          const resultCursor =
+            isDone && !migrationIsDone ? null : continueCursor;
+          const result = {
+            continueCursor: resultCursor,
+            isDone: migrationIsDone,
+            processed: page.length,
+            currentRangeIndex: migrationIsDone
+              ? currentRangeIndex
+              : resultCurrentRangeIndex,
+            batchSize: numItems,
+            metrics,
+          };
+          if (args.dryRun) {
+            // Throwing an error rolls back the transaction
+            let anyChanges = false;
+            let printedChanges = 0;
+            for (const before of page) {
+              const after = await ctx.db.get(
+                table,
+                before._id as GenericId<TableName>,
+              );
+              if (JSON.stringify(after) !== JSON.stringify(before)) {
+                anyChanges = true;
+                printedChanges++;
+                if (printedChanges > 10) {
+                  console.debug(
+                    "DRY RUN: More than 10 changes were found in the first page. Skipping the rest.",
+                  );
+                  break;
+                }
+                console.debug("DRY RUN: Example change", {
+                  before,
+                  after,
+                });
+              }
+            }
+            if (!anyChanges) {
+              console.debug(
+                "DRY RUN: No changes were found in the first page. " +
+                  `Try {"dryRun": true, "cursor": "${continueCursor}"}`,
+              );
+            }
+            throw new ConvexError({
+              kind: "DRY RUN",
+              result,
+            });
+          }
+          if (args.dryRun === undefined) {
+            // We are running it in a one-off mode.
+            // The component will always provide dryRun.
+            // A bit of a hack / implicit, but non-critical logging.
+            console.debug(`Next cursor: ${continueCursor}`);
+          }
+          return result;
+        } catch (e) {
+          if (args.dryRun && getMigrationDryRunResult(e) !== undefined) {
+            throw e;
           }
           throw new ConvexError({
-            kind: "DRY RUN",
-            result,
+            kind: MIGRATION_BATCH_FAILURE,
+            batchSize: numItems,
+            message: e instanceof Error ? e.message : String(e),
           });
         }
-        if (args.dryRun === undefined) {
-          // We are running it in a one-off mode.
-          // The component will always provide dryRun.
-          // A bit of a hack / implicit, but non-critical logging.
-          console.debug(`Next cursor: ${continueCursor}`);
-        }
-        return result;
       },
     }) satisfies RegisteredMutation<
       "internal",
@@ -524,6 +591,8 @@ export class Migrations<
    * @param opts.cursor The cursor to start from.
    *   null: start from the beginning.
    *   undefined: start or resume from where it failed. If done, it won't restart.
+   * @param opts.currentRangeIndex The customRange array position to use with
+   *   opts.cursor for multi-range migrations. Defaults to 0 when opts.cursor is set.
    * @param opts.reset If true, restarts the migration from the beginning.
    * @param opts.batchSize The number of documents to process in a batch.
    * @param opts.dryRun If true, it will run a batch and then throw an error.
@@ -534,18 +603,26 @@ export class Migrations<
     fnRef: MigrationFunctionReference,
     opts?: {
       cursor?: string | null;
+      currentRangeIndex?: number;
       batchSize?: number;
       dryRun?: boolean;
       reset?: boolean;
     },
   ) {
+    const cursor = opts?.reset ? null : opts?.cursor;
+    const currentRangeIndex =
+      opts?.reset || opts?.cursor !== undefined
+        ? (opts?.currentRangeIndex ?? 0)
+        : opts?.currentRangeIndex;
     return ctx.runMutation(this.component.lib.migrate, {
       name: getFunctionName(fnRef),
       fnHandle: await createFunctionHandle(fnRef),
-      cursor: opts?.reset ? null : opts?.cursor,
+      ...(cursor !== undefined ? { cursor } : {}),
+      ...(currentRangeIndex !== undefined ? { currentRangeIndex } : {}),
       batchSize: opts?.batchSize,
       dryRun: opts?.dryRun ?? false,
       reset: opts?.reset,
+      adaptiveBatchSize: opts?.batchSize === undefined,
     });
   }
 
@@ -601,6 +678,7 @@ export class Migrations<
       fnHandle: await createFunctionHandle(fnRef),
       next,
       dryRun: false,
+      adaptiveBatchSize: true,
     });
   }
 
@@ -719,6 +797,11 @@ export async function runToCompletion(
      */
     cursor?: string | null;
     /**
+     * The customRange array position to use with cursor for multi-range
+     * migrations. Defaults to 0 when cursor is set.
+     */
+    currentRangeIndex?: number;
+    /**
      * The number of documents to process in a batch.
      * Overrides the migrations's configured batch size.
      */
@@ -734,19 +817,31 @@ export async function runToCompletion(
   const {
     name = getFunctionName(fnRef),
     batchSize,
+    currentRangeIndex: initialCurrentRangeIndex,
     dryRun = false,
   } = opts ?? {};
+  let activeBatchSize = batchSize;
+  let currentRangeIndex: number | undefined =
+    initialCurrentRangeIndex ?? (opts?.cursor !== undefined ? 0 : undefined);
   const address = getFunctionAddress(fnRef);
   const fnHandle =
     address.functionHandle ?? (await createFunctionHandle(fnRef));
   while (true) {
+    const previousCursor = cursor;
+    const previousCurrentRangeIndex = currentRangeIndex;
+    const previousBatchSize = activeBatchSize;
+    // Omit cursor/currentRangeIndex on the first call when the caller did not
+    // choose a starting point. The component uses absence to resume its stored
+    // cursor and multi-range index; null and 0 are explicit restart positions.
     const status = await ctx.runMutation(component.lib.migrate, {
       name,
       fnHandle,
-      cursor,
-      batchSize,
+      ...(cursor !== undefined ? { cursor } : {}),
+      ...(currentRangeIndex !== undefined ? { currentRangeIndex } : {}),
+      ...(activeBatchSize !== undefined ? { batchSize: activeBatchSize } : {}),
       dryRun,
       oneBatchOnly: true,
+      adaptiveBatchSize: batchSize === undefined,
     });
     if (status.isDone) {
       return status;
@@ -754,13 +849,24 @@ export async function runToCompletion(
     if (status.error) {
       throw new Error(status.error);
     }
-    if (!status.cursor || status.cursor === cursor) {
+    // Another scheduled worker owns progress now; running another one-batch
+    // mutation here would race it, so this helper preserves migrate's no-op.
+    if (status.state === "inProgress") {
+      return status;
+    }
+    cursor = status.cursor;
+    currentRangeIndex = status.currentRangeIndex ?? currentRangeIndex;
+    activeBatchSize = status.batchSize ?? activeBatchSize;
+    if (
+      status.cursor === previousCursor &&
+      currentRangeIndex === previousCurrentRangeIndex &&
+      activeBatchSize === previousBatchSize
+    ) {
       throw new Error(
         "Invariant violation: Migration did not make progress." +
           `\nStatus: ${JSON.stringify(status)}`,
       );
     }
-    cursor = status.cursor;
   }
 }
 
@@ -785,46 +891,9 @@ export function isNewFormatCursor(cursor: string | null): boolean {
 type QueryCtx = Pick<GenericQueryCtx<GenericDataModel>, "runQuery">;
 type MutationCtx = Pick<
   GenericMutationCtx<GenericDataModel>,
-  "runQuery" | "runMutation"
+  "meta" | "runQuery" | "runMutation"
 >;
 type ActionCtx = Pick<
   GenericActionCtx<GenericDataModel>,
-  "runQuery" | "runMutation" | "storage"
+  "meta" | "runQuery" | "runMutation" | "storage"
 >;
-
-// TODO: replace with ctx.meta.getFunctionMetadata() in 1.36+
-export async function getFunctionMetadata(): Promise<{
-  name: string;
-  componentPath: string;
-}> {
-  const syscalls = (globalThis as any).Convex;
-  return JSON.parse(
-    await syscalls.asyncSyscall("1.0/getFunctionMetadata", JSON.stringify({})),
-  );
-}
-
-type TransactionMetric = {
-  used: number;
-  remaining: number;
-};
-
-type TransactionMetrics = {
-  bytesRead: TransactionMetric;
-  bytesWritten: TransactionMetric;
-  databaseQueries: TransactionMetric;
-  documentsRead: TransactionMetric;
-  documentsWritten: TransactionMetric;
-  functionsScheduled: TransactionMetric;
-  scheduledFunctionArgsBytes: TransactionMetric;
-};
-
-// TODO: replace with ctx.meta.getFunctionMetadata() in 1.36+
-export async function getTransactionMetrics(): Promise<TransactionMetrics> {
-  const syscalls = (globalThis as any).Convex;
-  return JSON.parse(
-    await syscalls.asyncSyscall(
-      "1.0/getTransactionMetrics",
-      JSON.stringify({}),
-    ),
-  );
-}

@@ -31,10 +31,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           batchSize?: number;
           cursor?: string | null;
+          currentRangeIndex: number;
           error?: string;
           isDone: boolean;
           latestEnd?: number;
           latestStart: number;
+          limitingMetric?: string;
           name: string;
           next?: Array<string>;
           processed: number;
@@ -49,10 +51,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Array<{
           batchSize?: number;
           cursor?: string | null;
+          currentRangeIndex: number;
           error?: string;
           isDone: boolean;
           latestEnd?: number;
           latestStart: number;
+          limitingMetric?: string;
           name: string;
           next?: Array<string>;
           processed: number;
@@ -74,10 +78,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Array<{
           batchSize?: number;
           cursor?: string | null;
+          currentRangeIndex: number;
           error?: string;
           isDone: boolean;
           latestEnd?: number;
           latestStart: number;
+          limitingMetric?: string;
           name: string;
           next?: Array<string>;
           processed: number;
@@ -89,8 +95,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          adaptiveBatchSize?: boolean;
           batchSize?: number;
           cursor?: string | null;
+          currentRangeIndex?: number;
           dryRun: boolean;
           fnHandle: string;
           name: string;
@@ -101,10 +109,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           batchSize?: number;
           cursor?: string | null;
+          currentRangeIndex: number;
           error?: string;
           isDone: boolean;
           latestEnd?: number;
           latestStart: number;
+          limitingMetric?: string;
           name: string;
           next?: Array<string>;
           processed: number;
