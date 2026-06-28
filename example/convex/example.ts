@@ -39,6 +39,20 @@ export const validateRequiredField = migrations.define({
   },
 });
 
+export const validateRequiredFieldVariants = migrations.define({
+  table: "myTable",
+  batchSize: 1,
+  customRange: (query) => [
+    query.withIndex("by_requiredField", (q) =>
+      q.eq("requiredField", "<todo1>"),
+    ),
+    query.withIndex("by_requiredField", (q) =>
+      q.eq("requiredField", "<todo2>"),
+    ),
+  ],
+  migrateOne: () => ({ requiredField: "<unknown>" }),
+});
+
 // If you prefer the old-style migration definition, you can define `migration`:
 const migration = migrations.define.bind(migrations);
 // Then use it like this:
