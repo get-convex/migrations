@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Before starting a migration, `runOne`, `runSerially`, and the `runner`
+  functions now check the migration status from a stale snapshot (via
+  `ctx.runQuery(..., { useStaleSnapshot: true })`) and no-op if it's already in
+  progress. This avoids OCC conflicts with the batches an in-progress migration
+  is actively writing, which was likely when re-running a post-deploy script.
+  For a series, it checks *all* the migrations at once (not just the first),
+  since a mid-series migration that's in progress causes the same conflict.
+  Requires `convex@^1.42.0`.
+
 ## 0.3.5
 
 - Supports running migrations within components by using the convex-helpers

@@ -179,6 +179,44 @@ export class Migrations<
     });
   }
 
+  /**
+   * Checks whether any of the given migrations is already running before we try
+   * to start them, so the caller can bail instead of provoking an OCC conflict
+   * with the batches an in-progress migration is actively writing. This is a
+   * common problem when re-running migrations from a deploy script.
+   *
+   * We check all the names because starting a series attempts each migration in
+   * turn, so any one being in progress can conflict - not just the first. A
+   * serial series is self-propagating (each migration starts the next when it
+   * finishes), so bailing still lets the in-flight series run to completion.
+   *
+   * From a mutation we read from a stale snapshot so this check itself doesn't
+   * add a read dependency that would conflict. useStaleSnapshot only applies
+   * inside a mutation transaction; an action runs each query in its own
+   * transaction, so there's no calling transaction to protect.
+   *
+   * Note: a migration may have just finished by the time this transaction
+   * commits, but that's fine - the goal is only to avoid starting it again, and
+   * a completed migration is a no-op to start anyway.
+   *
+   * @returns The status of an in-progress migration, if any, else undefined.
+   */
+  private async anyInProgress(
+    ctx: MutationCtx | ActionCtx,
+    names: string[],
+  ): Promise<MigrationStatus | undefined> {
+    const { type } = await ctx.meta.getFunctionMetadata();
+    const statuses =
+      type === "mutation"
+        ? await (ctx as MutationCtx).runQuery(
+            this.component.lib.getStatus,
+            { names },
+            { useStaleSnapshot: true },
+          )
+        : await ctx.runQuery(this.component.lib.getStatus, { names });
+    return statuses.find((s) => s.state === "inProgress");
+  }
+
   private async _runInteractive(
     ctx: MutationCtx | ActionCtx,
     args: MigrationArgs,
@@ -211,6 +249,24 @@ export class Migrations<
           })),
         ),
       );
+    }
+    // Bail if any migration in the series is already running, to avoid an OCC
+    // conflict with its batches. Unless we're resetting, which explicitly asks
+    // to restart from the beginning.
+    if (!args.reset) {
+      const inProgress = await this.anyInProgress(ctx, [
+        name,
+        ...(next ?? []).map((n) => n.name),
+      ]);
+      if (inProgress) {
+        const { componentPath } = await getFunctionMetadata();
+        return logStatusAndInstructions(
+          inProgress.name,
+          inProgress,
+          args,
+          componentPath,
+        );
+      }
     }
     // Handle reset option: reset sets cursor to null for all migrations
     const cursor = args.reset ? null : args.cursor;
@@ -539,8 +595,15 @@ export class Migrations<
       reset?: boolean;
     },
   ) {
+    const name = getFunctionName(fnRef);
+    // Bail if it's already running to avoid an OCC conflict with its batches.
+    // Skip this when resetting, which explicitly asks to restart.
+    if (!opts?.reset) {
+      const inProgress = await this.anyInProgress(ctx, [name]);
+      if (inProgress) return inProgress;
+    }
     return ctx.runMutation(this.component.lib.migrate, {
-      name: getFunctionName(fnRef),
+      name,
       fnHandle: await createFunctionHandle(fnRef),
       cursor: opts?.reset ? null : opts?.cursor,
       batchSize: opts?.batchSize,
@@ -590,6 +653,15 @@ export class Migrations<
   ) {
     if (fnRefs.length === 0) return;
     const [fnRef, ...rest] = fnRefs;
+    const name = getFunctionName(fnRef);
+    // Bail if any migration in the series is already running, to avoid an OCC
+    // conflict with its batches - the common case when re-running a post-deploy
+    // script.
+    const inProgress = await this.anyInProgress(
+      ctx,
+      fnRefs.map(getFunctionName),
+    );
+    if (inProgress) return inProgress;
     const next = await Promise.all(
       rest.map(async (fnRef) => ({
         name: getFunctionName(fnRef),
@@ -597,7 +669,7 @@ export class Migrations<
       })),
     );
     return ctx.runMutation(this.component.lib.migrate, {
-      name: getFunctionName(fnRef),
+      name,
       fnHandle: await createFunctionHandle(fnRef),
       next,
       dryRun: false,
@@ -785,11 +857,11 @@ export function isNewFormatCursor(cursor: string | null): boolean {
 type QueryCtx = Pick<GenericQueryCtx<GenericDataModel>, "runQuery">;
 type MutationCtx = Pick<
   GenericMutationCtx<GenericDataModel>,
-  "runQuery" | "runMutation"
+  "runQuery" | "runMutation" | "meta"
 >;
 type ActionCtx = Pick<
   GenericActionCtx<GenericDataModel>,
-  "runQuery" | "runMutation" | "storage"
+  "runQuery" | "runMutation" | "storage" | "meta"
 >;
 
 // TODO: replace with ctx.meta.getFunctionMetadata() in 1.36+
