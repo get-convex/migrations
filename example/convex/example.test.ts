@@ -3,6 +3,7 @@ import { initConvexTest } from "./setup.test";
 import { components, internal } from "./_generated/api";
 import { runToCompletion } from "@convex-dev/migrations";
 import { createFunctionHandle, getFunctionName } from "convex/server";
+import { migrations } from "./example";
 
 describe("example", () => {
   beforeEach(async () => {
@@ -48,6 +49,85 @@ describe("example", () => {
         );
       }),
     ).rejects.toThrow("This migration fails after the first");
+  });
+
+  test("runOne no-ops when the migration is already in progress", async () => {
+    const t = initConvexTest();
+    await t.mutation(internal.example.seed, { count: 10 });
+    // batchSize 2 over 10 docs runs one batch and schedules a worker for the
+    // next, leaving the migration in progress (a pending worker).
+    const first = await t.run((ctx) =>
+      migrations.runOne(ctx, internal.example.setDefaultValue, {
+        batchSize: 2,
+      }),
+    );
+    expect(first?.state).toBe("inProgress");
+    expect(first?.processed).toBe(2);
+    // A second attempt while it's in progress should bail without running
+    // another batch (which would OCC against the in-flight batches).
+    const second = await t.run((ctx) =>
+      migrations.runOne(ctx, internal.example.setDefaultValue, {
+        batchSize: 2,
+      }),
+    );
+    expect(second?.state).toBe("inProgress");
+    expect(second?.processed).toBe(first?.processed);
+  });
+
+  test("runSerially no-ops when the first migration is already in progress", async () => {
+    const t = initConvexTest();
+    await t.mutation(internal.example.seed, { count: 10 });
+    const first = await t.run((ctx) =>
+      migrations.runOne(ctx, internal.example.setDefaultValue, {
+        batchSize: 2,
+      }),
+    );
+    expect(first?.state).toBe("inProgress");
+    // Re-running the series (e.g. a re-invoked post-deploy script) should
+    // detect the in-progress migration and no-op rather than restart it.
+    const second = await t.run((ctx) =>
+      migrations.runSerially(ctx, [
+        internal.example.setDefaultValue,
+        internal.example.validateRequiredField,
+      ]),
+    );
+    expect(second?.name).toBe(getFunctionName(internal.example.setDefaultValue));
+    expect(second?.state).toBe("inProgress");
+    expect(second?.processed).toBe(first?.processed);
+  });
+
+  test("runSerially no-ops when a later migration in the series is in progress", async () => {
+    const t = initConvexTest();
+    await t.mutation(internal.example.seed, { count: 10 });
+    // Put a *later* migration in the series in progress (a pending worker).
+    const started = await t.run((ctx) =>
+      migrations.runOne(ctx, internal.example.setDefaultValue, {
+        batchSize: 2,
+      }),
+    );
+    expect(started?.state).toBe("inProgress");
+    // Run a series whose *first* migration isn't in progress, but a later one
+    // is. `migrate` would walk the series and read the in-progress migration's
+    // hot state row (an OCC risk), so we should detect it and bail without
+    // running the first migration at all.
+    const result = await t.run((ctx) =>
+      migrations.runSerially(ctx, [
+        internal.example.clearField,
+        internal.example.setDefaultValue,
+      ]),
+    );
+    expect(result?.name).toBe(
+      getFunctionName(internal.example.setDefaultValue),
+    );
+    expect(result?.state).toBe("inProgress");
+    // The first migration in the series never ran (else its state would exist).
+    const [clearFieldStatus] = await t.run((ctx) =>
+      migrations.getStatus(ctx, {
+        migrations: [internal.example.clearField],
+      }),
+    );
+    expect(clearFieldStatus.state).toBe("unknown");
+    expect(clearFieldStatus.isDone).toBe(false);
   });
 
   test("test migrating with function handle", async () => {
