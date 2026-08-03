@@ -98,11 +98,11 @@ import schema from "./_generated/schema.js";
 export const migrations = new Migrations(components.migrations, { schema });
 ```
 
-The `schema` provides type safety for migration definitions and support
-for pagination over custom indexes with
-[`customRange`](#migrating-a-subset-of-a-table-using-an-index).
-As always, database operations in migrations will abide
-by your schema definition at runtime. **Note**: if you use
+The `schema` provides type safety for migration definitions and support for
+pagination over custom indexes with
+[`customRange`](#migrating-a-subset-of-a-table-using-an-index). As always,
+database operations in migrations will abide by your schema definition at
+runtime. **Note**: if you use
 [custom functions](https://stack.convex.dev/custom-functions) to override
 `internalMutation`, see
 [below](#override-the-internalmutation-to-apply-custom-db-behavior).
@@ -163,6 +163,26 @@ export const validateRequiredField = migrations.define({
 ```
 
 Note: to use customRange, you must provide your schema to Migrations.
+
+`customRange` may also return an array of ranges. This is useful when a single
+logical migration needs to read several indexed subsets without scanning the
+whole table. The component runs each range to completion before advancing to the
+next one.
+
+```ts
+export const validateRequiredFields = migrations.define({
+  table: "myTable",
+  customRange: (query) => [
+    query.withIndex("by_requiredField", (q) =>
+      q.eq("requiredField", "<todo1>"),
+    ),
+    query.withIndex("by_requiredField", (q) =>
+      q.eq("requiredField", "<todo2>"),
+    ),
+  ],
+  migrateOne: () => ({ requiredField: "<unknown>" }),
+});
+```
 
 ## Running migrations one at a time
 
@@ -307,6 +327,11 @@ You can also pass in any valid cursor to start from. You can find valid cursors
 in the response of calls to `getStatus`. This can allow retrying a migration
 from a known good point as you iterate on the code.
 
+For a migration whose `customRange` returns multiple ranges, the cursor is
+scoped to the current range. Pass both `cursor` and `currentRangeIndex` from
+`getStatus` when resuming from a known point in any range after the first.
+Passing `reset: true` resets `currentRangeIndex` to `0`.
+
 Note: if you're starting a migration from a specific cursor from the CLI or
 dashboard, do not pass `dryRun: false` explicitly, leave it undefined.
 
@@ -367,8 +392,8 @@ npx convex deploy --cmd 'npm run build' && npx convex run convex/migrations.ts:r
 
 ### Override the internalMutation to apply custom DB behavior
 
-You can customize which `internalMutation` implementation the underly migration
-should use.
+You can customize which `internalMutation` implementation the underlying
+migration should use.
 
 This might be important if you use
 [custom functions](https://stack.convex.dev/custom-functions) to intercept
@@ -392,12 +417,74 @@ more information on usage and advanced patterns.
 
 ### Custom batch size
 
-The component will fetch your data in batches of 100, and call your function on
-each document in a batch. If you want to change the batch size, you can specify
-it. This can be useful if your documents are large, to avoid running over the
+The starting batch size comes from the migration definition's `batchSize`, then
+the `Migrations` instance's `defaultBatchSize`, and otherwise defaults to `100`.
+You can also override it for a particular run. This can be useful if your
+documents are large, to avoid running over the
 [transaction limit](https://docs.convex.dev/production/state/limits#transactions),
 or if your documents are updating frequently and you are seeing OCC conflicts
 while migrating.
+
+When you do not pass an explicit batch size for a run, the component treats that
+resolved size as the starting size and then adjusts future batches from Convex
+transaction metrics and the observed wall time of the nested migration
+mutation. After a successful batch, it estimates the largest next batch that
+would keep the highest
+transaction-limit usage at or below half of the limit and wall time near 500
+milliseconds, half of Convex's documented
+[one-second mutation execution limit](https://docs.convex.dev/production/state/limits#execution-time-and-scheduling).
+If adding one more document would be expected to cross the tightest target, the
+batch size stays unchanged; if the last batch exceeded a target, the next batch
+shrinks toward it.
+
+The wall-time measurement starts immediately before the nested migration
+mutation and stops when that call returns. It includes nested-call and database
+syscall overhead, but not the enclosing transaction's commit or top-level OCC
+retries. It is a conservative signal, not Convex's internal user-execution time.
+`getStatus` reports the dimension that caused a shrink as `limitingMetric`;
+wall-time reductions use `mutationWallTime`.
+
+Known transaction-limit failures from the nested migration are caught inside the
+controller mutation. Covered limits are bytes read, documents read, database
+queries, bytes written, documents written, scheduled-function count, and
+scheduled-function argument bytes. Scheduled continuations run through an
+internal action. If the full controller mutation instead fails at its outer
+boundary with a permanent OCC error, user-execution timeout, or cumulative
+system-operations timeout, that action can catch the real failure after the
+transaction rolls back. A recovery mutation verifies the worker generation and
+stored cursor/range before scheduling a smaller retry, so it does not advance or
+overwrite newer progress.
+
+Each recognized failure halves the smallest known failed batch size. Retries can
+go below the configured or default batch size, down to `1`. A recognized
+failure at batch size `1`, an unrecognized failure, or a failure whose attempted
+batch size is unknown stops the migration. When the controller or worker
+recovery can commit, it stores that error in status; an uncaught first-call or
+`runToCompletion` outer failure is returned to its caller instead. OCC and
+the two hard timeout reductions are reported as `optimisticConcurrencyControl`,
+`mutationUserExecutionTime`, and `mutationSystemOperationsTime`, respectively.
+The successful wall-time signal includes syscall waiting, so it already reacts
+to expensive system operations without inventing separate successful user-time
+or system-time estimates that Convex does not expose.
+
+Underfilled pages do not change the adaptive size or its known failure bound.
+This matters for migrations over multiple custom ranges: the last page in one
+range may be much smaller than requested and does not predict the cost of
+documents in the next range. Resuming a migration without an explicit
+`batchSize` also preserves its stored adaptive size.
+
+A `batchSize` in the migration definition sets that migration's starting/default
+size. Passing `batchSize` for a particular run keeps successful batches fixed at
+that size; a recognized failure may still force a smaller retry.
+
+The first direct call to a migration remains a mutation for API compatibility.
+The component therefore cannot automatically catch a top-level OCC failure or
+hard timeout from that call. Retry it with a smaller explicit `batchSize`; once
+a batch schedules a continuation, the continuation uses the action-backed
+worker. `runToCompletion` already runs at an action boundary and reduces known
+outer failures when it knows the attempted size, either from `batchSize` or
+stored migration status. When starting `runToCompletion` from an explicit
+cursor, pass `batchSize` if the first attempt also needs this recovery.
 
 ```ts
 export const clearField = migrations.define({
