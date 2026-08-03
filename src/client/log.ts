@@ -42,6 +42,9 @@ export function logStatusAndInstructions(
     output["lastFinished"] = new Date(status.latestEnd).toISOString();
   }
   output["processed"] = status.processed;
+  if (status.limitingMetric) {
+    output["limitingMetric"] = status.limitingMetric;
+  }
   if (status.next?.length) {
     if (status.isDone) {
       output["nowUp"] = status.next;
