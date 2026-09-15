@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as batchSize from "../batchSize.js";
 import type * as lib from "../lib.js";
 
 import type {
@@ -18,6 +19,7 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
+  batchSize: typeof batchSize;
   lib: typeof lib;
 }> = anyApi as any;
 

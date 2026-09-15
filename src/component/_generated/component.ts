@@ -30,11 +30,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { name: string },
         {
           batchSize?: number;
+          currentRangeIndex: number;
           cursor?: string | null;
           error?: string;
           isDone: boolean;
           latestEnd?: number;
           latestStart: number;
+          limitingMetric?: string;
           name: string;
           next?: Array<string>;
           processed: number;
@@ -48,11 +50,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { sinceTs?: number },
         Array<{
           batchSize?: number;
+          currentRangeIndex: number;
           cursor?: string | null;
           error?: string;
           isDone: boolean;
           latestEnd?: number;
           latestStart: number;
+          limitingMetric?: string;
           name: string;
           next?: Array<string>;
           processed: number;
@@ -73,11 +77,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { limit?: number; names?: Array<string> },
         Array<{
           batchSize?: number;
+          currentRangeIndex: number;
           cursor?: string | null;
           error?: string;
           isDone: boolean;
           latestEnd?: number;
           latestStart: number;
+          limitingMetric?: string;
           name: string;
           next?: Array<string>;
           processed: number;
@@ -89,22 +95,28 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          adaptiveBatchSize?: boolean;
           batchSize?: number;
+          currentRangeIndex?: number;
           cursor?: string | null;
           dryRun: boolean;
           fnHandle: string;
+          initialBatchSize?: number;
           name: string;
           next?: Array<{ fnHandle: string; name: string }>;
           oneBatchOnly?: boolean;
           reset?: boolean;
+          workerGeneration?: number;
         },
         {
           batchSize?: number;
+          currentRangeIndex: number;
           cursor?: string | null;
           error?: string;
           isDone: boolean;
           latestEnd?: number;
           latestStart: number;
+          limitingMetric?: string;
           name: string;
           next?: Array<string>;
           processed: number;

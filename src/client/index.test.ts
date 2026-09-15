@@ -1,5 +1,10 @@
-import { describe, test, expect } from "vitest";
-import { Migrations, DEFAULT_BATCH_SIZE, isNewFormatCursor } from "./index.js";
+import { describe, expect, test, vi } from "vitest";
+import {
+  DEFAULT_BATCH_SIZE,
+  isNewFormatCursor,
+  Migrations,
+  runToCompletion,
+} from "./index.js";
 import type { ComponentApi } from "../component/_generated/component.js";
 
 describe("Migrations class", () => {
@@ -40,5 +45,56 @@ describe("isNewFormatCursor", () => {
     expect(isNewFormatCursor("")).toBe(false);
     expect(isNewFormatCursor("{}")).toBe(false); // object, not array
     expect(isNewFormatCursor("null")).toBe(false); // string "null"
+  });
+});
+
+describe("runToCompletion", () => {
+  test("does not retry a known failed size after adaptive growth", async () => {
+    const runMutation = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error("Function execution timed out (maximum duration: 1s)"),
+      )
+      .mockResolvedValueOnce({
+        name: "migrations:test",
+        cursor: "after-five",
+        processed: 2,
+        isDone: false,
+        state: "unknown",
+        latestStart: 0,
+        batchSize: 20,
+        currentRangeIndex: 0,
+      })
+      .mockResolvedValueOnce({
+        name: "migrations:test",
+        cursor: null,
+        processed: 12,
+        isDone: true,
+        state: "success",
+        latestStart: 0,
+        currentRangeIndex: 0,
+      });
+    const ctx = {
+      runMutation,
+    } as unknown as Parameters<typeof runToCompletion>[0];
+    const component = {
+      lib: { migrate: {} },
+    } as ComponentApi;
+
+    await runToCompletion(
+      ctx,
+      component,
+      "function://test" as Parameters<typeof runToCompletion>[2],
+      { name: "migrations:test", cursor: null, batchSize: 10 },
+    );
+
+    expect(runMutation.mock.calls.map(([, args]) => args.batchSize)).toEqual([
+      10, 5, 5,
+    ]);
+    expect(runMutation.mock.calls.map(([, args]) => args.cursor)).toEqual([
+      null,
+      null,
+      undefined,
+    ]);
   });
 });
