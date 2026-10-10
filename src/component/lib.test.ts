@@ -1,51 +1,54 @@
-import { convexTest } from "convex-test";
-import {
-  type ApiFromModules,
-  anyApi,
-  createFunctionHandle,
-} from "convex/server";
+import { defineTestApp } from "convex-test";
+import { createFunctionHandle } from "convex/server";
 import { describe, expect, test, vi } from "vitest";
 import type { MigrationResult } from "../client/index.js";
 import { migrationArgs } from "../shared.js";
-import { api } from "./_generated/api.js";
-import { mutation } from "./_generated/server.js";
+import * as lib from "./lib.js";
 import schema from "./schema.js";
-import { modules } from "./setup.test.js";
 
-export const doneMigration = mutation({
-  args: migrationArgs,
-  handler: async (): Promise<MigrationResult> => {
-    return {
-      isDone: true,
-      continueCursor: "foo",
-      processed: 1,
-    };
-  },
-});
-
-export const doneMigration2 = mutation({
-  args: migrationArgs,
-  handler: async (): Promise<MigrationResult> => {
-    return {
-      isDone: true,
-      continueCursor: "bar",
-      processed: 2,
-    };
-  },
-});
-
-const testApi: ApiFromModules<{
+const app = defineTestApp({ schema });
+const { api, createTest } = app.defineModules({
+  lib,
   fns: {
-    doneMigration: typeof doneMigration;
-    doneMigration2: typeof doneMigration2;
-  };
-}>["fns"] = anyApi["lib.test"] as any;
+    doneMigration: app.mutation({
+      args: migrationArgs,
+      handler: async (): Promise<MigrationResult> => {
+        return {
+          isDone: true,
+          continueCursor: "foo",
+          processed: 1,
+        };
+      },
+    }),
+    doneMigration2: app.mutation({
+      args: migrationArgs,
+      handler: async (): Promise<MigrationResult> => {
+        return {
+          isDone: true,
+          continueCursor: "bar",
+          processed: 2,
+        };
+      },
+    }),
+    inProgressMigration: app.mutation({
+      args: migrationArgs,
+      handler: async (): Promise<MigrationResult> => {
+        // Simulates a migration that processes 10 items and needs to continue
+        return {
+          isDone: false,
+          continueCursor: "cursor_after_10",
+          processed: 10,
+        };
+      },
+    }),
+  },
+});
 
 describe("migrate", () => {
   test("runs a simple migration in one go", async () => {
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration),
+      createFunctionHandle(api.fns.doneMigration),
     );
     const result = await t.mutation(api.lib.migrate, {
       name: "testMigration",
@@ -70,7 +73,7 @@ describe("migrate", () => {
       next: [],
       dryRun: false,
     };
-    const t = convexTest(schema, modules);
+    const t = createTest();
     // Assumes testApi has shape matching api.lib – adjust per actual ConvexTest usage
     await expect(t.mutation(api.lib.migrate, args)).rejects.toThrow(
       "Batch size must be greater than 0",
@@ -86,42 +89,26 @@ describe("migrate", () => {
       next: [],
       dryRun: false,
     };
-    const t = convexTest(schema, modules);
+    const t = createTest();
     await expect(t.mutation(api.lib.migrate, args)).rejects.toThrow(
       "Invalid fnHandle",
     );
   });
 });
 
-export const inProgressMigration = mutation({
-  args: migrationArgs,
-  handler: async (): Promise<MigrationResult> => {
-    // Simulates a migration that processes 10 items and needs to continue
-    return {
-      isDone: false,
-      continueCursor: "cursor_after_10",
-      processed: 10,
-    };
-  },
-});
-
-const inProgressApi: ApiFromModules<{
-  fns: { inProgressMigration: typeof inProgressMigration };
-}>["fns"] = anyApi["lib.test"] as any;
-
 describe("cancel", () => {
   test("throws error if migration not found", async () => {
     // For cancel, ConvexTest-like patterns would be similar – this code demonstrates minimal direct call
-    const t = convexTest(schema, modules);
+    const t = createTest();
     await expect(
       t.mutation(api.lib.cancel, { name: "nonexistent" }),
     ).rejects.toThrow();
   });
 
   test("cancel calls scheduler.cancel when workerId exists", async () => {
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle = await t.run(() =>
-      createFunctionHandle(inProgressApi.inProgressMigration),
+      createFunctionHandle(api.fns.inProgressMigration),
     );
 
     // Start migration with oneBatchOnly=false so it schedules next batch
@@ -149,16 +136,16 @@ describe("cancel", () => {
   });
 
   test("canceled migration can be restarted", async () => {
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration),
+      createFunctionHandle(api.fns.doneMigration),
     );
 
     // Create a migration with a canceled scheduled function
     await t.run(async (ctx) => {
       const workerId = await ctx.scheduler.runAfter(
         0,
-        testApi.doneMigration,
+        api.fns.doneMigration,
         {},
       );
       await ctx.scheduler.cancel(workerId);
@@ -190,7 +177,7 @@ describe("cancel", () => {
 
 describe("It doesn't attempt a migration if it's already done", () => {
   test("runs a simple migration in one go", async () => {
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle = "function://invalid";
     await t.run((ctx) =>
       ctx.db.insert("migrations", {
@@ -213,9 +200,9 @@ describe("It doesn't attempt a migration if it's already done", () => {
 
 describe("reset", () => {
   test("reset re-runs a migration that was already done", async () => {
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration),
+      createFunctionHandle(api.fns.doneMigration),
     );
     // Pre-seed a completed migration
     await t.run((ctx) =>
@@ -243,9 +230,9 @@ describe("reset", () => {
   });
 
   test("reset with cursor: null restarts from beginning", async () => {
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration),
+      createFunctionHandle(api.fns.doneMigration),
     );
     // Pre-seed a migration that was in progress (not done)
     await t.run((ctx) =>
@@ -271,12 +258,12 @@ describe("reset", () => {
 
   test("reset propagates to next migrations in a series", async () => {
     vi.useFakeTimers();
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle1 = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration),
+      createFunctionHandle(api.fns.doneMigration),
     );
     const fnHandle2 = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration2),
+      createFunctionHandle(api.fns.doneMigration2),
     );
     // Pre-seed both migrations as completed
     await t.run(async (ctx) => {
@@ -325,12 +312,12 @@ describe("reset", () => {
   });
 
   test("without reset, already-done next migrations are skipped", async () => {
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle1 = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration),
+      createFunctionHandle(api.fns.doneMigration),
     );
     const fnHandle2 = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration2),
+      createFunctionHandle(api.fns.doneMigration2),
     );
     // Pre-seed migration2 as completed
     await t.run(async (ctx) => {
@@ -363,9 +350,9 @@ describe("reset", () => {
   });
 
   test("reset on a fresh migration (no prior state) works", async () => {
-    const t = convexTest(schema, modules);
+    const t = createTest();
     const fnHandle = await t.run(() =>
-      createFunctionHandle(testApi.doneMigration),
+      createFunctionHandle(api.fns.doneMigration),
     );
     // No pre-seeded state — reset on a brand new migration
     const result = await t.mutation(api.lib.migrate, {
