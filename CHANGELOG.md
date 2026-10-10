@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.7
+
+- Updates the /test entrypoint for compatibility with convex-test's new
+  `defineTestApp` capability.
+
 ## 0.3.6
 
 - Before starting a migration, `runOne`, `runSerially`, and the `runner`
