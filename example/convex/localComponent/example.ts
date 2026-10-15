@@ -1,9 +1,8 @@
 /**
  * Example: Migrations inside a Convex Component
  *
- * When writing migrations for data inside a component, you MUST pass the schema
- * to the Migrations constructor. This is because the built-in .paginate() method
- * is not available in component contexts - we use the paginator from convex-helpers instead.
+ * Migrations work on data inside a component the same way as in an app.
+ * Passing the schema provides type safety for migration definitions.
  */
 import { Migrations } from "@convex-dev/migrations";
 import { components } from "./_generated/api.js";

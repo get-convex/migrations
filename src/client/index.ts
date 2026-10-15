@@ -1,3 +1,5 @@
+// Only used to resume migrations with legacy paginator cursors. See
+// isPaginatorCursor.
 import { paginator } from "convex-helpers/server/pagination";
 import {
   createFunctionHandle,
@@ -105,7 +107,11 @@ export class Migrations<
        */
       migrationsLocationPrefix?: string;
       /**
-       * The schema for your database. Required when using customRange.
+       * The schema for your database. Provides type safety for migration
+       * definitions. At runtime it is only needed to resume an in-progress
+       * migration with a customRange that was started on versions
+       * 0.3.5-0.3.7 of this component (which stored convex-helpers
+       * paginator cursors).
        * ```ts
        * import schema from "./schema.js";
        *
@@ -424,36 +430,35 @@ export class Migrations<
           }
         }
 
-        // Determine which pagination method to use
-        const cursorIsOldFormat =
-          args.cursor !== null &&
-          args.cursor !== undefined &&
-          !isNewFormatCursor(args.cursor);
-
-        // Use paginator when cursor is compatible.
-        // Falls back to built-in db.query for old-format cursors from
-        // in-progress migrations that started before the paginator was used.
-        const useNewPaginator = !cursorIsOldFormat;
-        if (useNewPaginator && customRange && !this.options?.schema) {
-          throw new Error(
-            `You must provide your schema to use a custom range.`,
-          );
+        // Use built-in db.query + .paginate() by default.
+        // Legacy fallback: migrations started with @convex-dev/migrations
+        // 0.3.5-0.3.7 stored cursors from the convex-helpers paginator (JSON
+        // arrays starting with "["). Those can't be passed to the built-in
+        // .paginate(), so we keep using the paginator to resume them.
+        const usePaginator = isPaginatorCursor(args.cursor);
+        let q: QueryInitializer<NamedTableInfo<DataModel, TableName>>;
+        if (usePaginator) {
+          if (customRange && !this.options?.schema) {
+            throw new Error(
+              "This migration has an in-progress cursor from the " +
+                "convex-helpers paginator (older versions of this component). " +
+                "To resume it with a custom range, provide your schema to " +
+                "Migrations, or restart the migration with the cursor set to null.",
+            );
+          }
+          const paginatorSchema = (this.options?.schema ??
+            defineSchema({ [table]: defineTable({}) })) as SchemaDefinition<
+            Record<TableName, TableDefinition>,
+            true
+          >;
+          q = paginator(ctx.db as any, paginatorSchema).query(
+            table,
+          ) as unknown as QueryInitializer<
+            NamedTableInfo<DataModel, TableName>
+          >;
+        } else {
+          q = ctx.db.query(table);
         }
-        const paginatorSchema = (this.options?.schema ??
-          defineSchema({ [table]: defineTable({}) })) as SchemaDefinition<
-          Record<TableName, TableDefinition>,
-          true
-        >;
-
-        // Build the query using either paginator or built-in db.query
-        // Both implement compatible QueryInitializer interfaces
-        const q = useNewPaginator
-          ? (paginator(ctx.db as any, paginatorSchema).query(
-              table,
-            ) as unknown as QueryInitializer<
-              NamedTableInfo<DataModel, TableName>
-            >)
-          : ctx.db.query(table);
         const range = customRange ? customRange(q) : q;
         let continueCursor: string;
         let page: DocumentByName<DataModel, TableName>[];
@@ -467,7 +472,7 @@ export class Migrations<
           console.error(
             "Error paginating. This can happen if the migration " +
               "was initially run on a different table, different custom range, " +
-              "or you upgraded convex-helpers with in-progress migrations. " +
+              "or you upgraded this component with in-progress migrations. " +
               "This creates an invalid pagination cursor. " +
               "Run all migrations to completion on the old cursor, or re-run " +
               "them explicitly with the cursor set to null. " +
@@ -837,15 +842,37 @@ export async function runToCompletion(
 }
 
 /**
- * Detects if a cursor is in the new paginator format (JSON array starting with "[")
- * or old built-in format (encrypted opaque string).
+ * Detects if a cursor is from the convex-helpers paginator, which versions
+ * 0.3.5-0.3.7 of this component used. Those cursors are the JSON-serialized
+ * index key of the last document, ending in `[..., _creationTime, _id]`, e.g.
+ * '[1719412234000,"k97d5ycbj3vgwcprmmxvmrm2dh7a5qhv"]'.
  *
- * New format cursors from convex-helpers paginator are JSON-serialized arrays like:
- * '["value", 1234567890, "documentId"]'
+ * Cursors from the built-in .paginate() are opaque strings. (convex-test's
+ * built-in cursors are also JSON arrays, but every element is a string, so
+ * they don't have a numeric `_creationTime`.)
  *
- * Old format cursors from built-in .paginate() are encrypted opaque strings.
- *
- * @returns true if this is a new-format cursor (or null for starting fresh)
+ * @returns true if this is a legacy paginator cursor. False for null.
+ */
+export function isPaginatorCursor(
+  cursor: string | null | undefined,
+): cursor is string {
+  if (typeof cursor !== "string" || !cursor.startsWith("[")) return false;
+  try {
+    const key = JSON.parse(cursor);
+    return (
+      Array.isArray(key) &&
+      key.length >= 2 &&
+      typeof key[key.length - 2] === "number" &&
+      typeof key[key.length - 1] === "string"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @deprecated Use {@link isPaginatorCursor}. Returns true for null or a
+ * cursor that starts with "[".
  */
 export function isNewFormatCursor(cursor: string | null): boolean {
   if (cursor === null) return true;

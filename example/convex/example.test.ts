@@ -3,7 +3,9 @@ import { initConvexTest } from "./setup.test";
 import { components, internal } from "./_generated/api";
 import { runToCompletion } from "@convex-dev/migrations";
 import { createFunctionHandle, getFunctionName } from "convex/server";
+import { paginator } from "convex-helpers/server/pagination";
 import { migrations } from "./example";
+import schema from "./schema";
 
 describe("example", () => {
   beforeEach(async () => {
@@ -22,7 +24,7 @@ describe("example", () => {
       expect(docs).toHaveLength(10);
       expect(docs.some((doc) => doc.optionalField === undefined)).toBe(true);
     });
-    await t.run(async (ctx) => {
+    await t.action(async (ctx) => {
       await runToCompletion(
         ctx,
         components.migrations,
@@ -41,7 +43,7 @@ describe("example", () => {
     const t = initConvexTest();
     await t.mutation(internal.example.seed, { count: 10 });
     await expect(
-      t.run(async (ctx) => {
+      t.action(async (ctx) => {
         await runToCompletion(
           ctx,
           components.migrations,
@@ -91,7 +93,9 @@ describe("example", () => {
         internal.example.validateRequiredField,
       ]),
     );
-    expect(second?.name).toBe(getFunctionName(internal.example.setDefaultValue));
+    expect(second?.name).toBe(
+      getFunctionName(internal.example.setDefaultValue),
+    );
     expect(second?.state).toBe("inProgress");
     expect(second?.processed).toBe(first?.processed);
   });
@@ -138,7 +142,7 @@ describe("example", () => {
       expect(docs).toHaveLength(10);
       expect(docs.some((doc) => doc.optionalField === undefined)).toBe(true);
     });
-    await t.run(async (ctx) => {
+    await t.action(async (ctx) => {
       const fnHandle = await createFunctionHandle(
         internal.example.setDefaultValue,
       );
@@ -151,6 +155,34 @@ describe("example", () => {
       const after = await ctx.db.query("myTable").collect();
       expect(after).toHaveLength(10);
       expect(after.every((doc) => doc.optionalField !== undefined)).toBe(true);
+    });
+  });
+
+  test("resumes from a legacy convex-helpers paginator cursor", async () => {
+    const t = initConvexTest();
+    await t.mutation(internal.example.seed, { count: 10 });
+    // Older versions of this component stored paginator cursors.
+    const { continueCursor } = await t.run((ctx) =>
+      paginator(ctx.db, schema)
+        .query("myTable")
+        .paginate({ cursor: null, numItems: 4 }),
+    );
+    expect(continueCursor.startsWith("[")).toBe(true);
+    const result = await t.mutation(internal.example.setDefaultValue, {
+      cursor: continueCursor,
+      batchSize: 100,
+      dryRun: false,
+      oneBatchOnly: true,
+    });
+    expect(result).toMatchObject({ processed: 6, isDone: true });
+    await t.run(async (ctx) => {
+      const docs = await ctx.db.query("myTable").collect();
+      const migrated = docs.filter((doc) => doc.optionalField !== undefined);
+      expect(migrated.length).toBeGreaterThanOrEqual(6);
+      // The first 4 docs (before the cursor) were skipped.
+      for (const doc of docs.slice(4)) {
+        expect(doc.optionalField).toBeDefined();
+      }
     });
   });
 });

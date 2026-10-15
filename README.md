@@ -98,11 +98,9 @@ import schema from "./_generated/schema.js";
 export const migrations = new Migrations(components.migrations, { schema });
 ```
 
-The `schema` provides type safety for migration definitions and support
-for pagination over custom indexes with
-[`customRange`](#migrating-a-subset-of-a-table-using-an-index).
-As always, database operations in migrations will abide
-by your schema definition at runtime. **Note**: if you use
+The `schema` provides type safety for migration definitions. As always, database
+operations in migrations will abide by your schema definition at runtime.
+**Note**: if you use
 [custom functions](https://stack.convex.dev/custom-functions) to override
 `internalMutation`, see
 [below](#override-the-internalmutation-to-apply-custom-db-behavior).
@@ -162,7 +160,9 @@ export const validateRequiredField = migrations.define({
 });
 ```
 
-Note: to use customRange, you must provide your schema to Migrations.
+Note: if you have an in-progress `customRange` migration that was started on
+versions 0.3.5-0.3.7 of this component, provide your schema to Migrations so it
+can resume from its stored cursor.
 
 ## Running migrations one at a time
 
